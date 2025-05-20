@@ -1,10 +1,11 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { AppComponent } from './app.component'; // Add this import
 
-const routes: Routes = [
+export const routes: Routes = [
   { 
     path: '', 
-    loadComponent: () => import('./app.component').then(m => m.AppComponent) 
+    component: AppComponent // Use component instead of loadComponent for the root component
   },
   { 
     path: 'records', 

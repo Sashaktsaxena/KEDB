@@ -1,15 +1,16 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, FormControl, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
+import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { KebdService } from './kebd.service';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, RouterOutlet, RouterModule],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
-  imports: [CommonModule, ReactiveFormsModule]
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
   kebdForm!: FormGroup;
@@ -54,7 +55,6 @@ export class AppComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder, 
-    private http: HttpClient, 
     private kebdService: KebdService,
     private router: Router
   ) {}

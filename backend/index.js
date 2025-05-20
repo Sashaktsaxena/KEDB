@@ -111,6 +111,7 @@ app.post('/api/kebd', async (req, res) => {
       message: 'KEBD record created successfully',
       id: result.insertId
     });
+    
   } catch (error) {
     console.error('Error creating KEBD record:', error);
     res.status(500).json({ message: 'Failed to create KEBD record', error: error.message });

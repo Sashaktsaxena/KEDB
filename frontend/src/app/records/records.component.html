@@ -1,0 +1,188 @@
+
+<div class="records-container">
+  <div class="header">
+    <h1>Knowledge Error Database Records</h1>
+    <button class="btn-add-record" routerLink="/">Add New Record</button>
+  </div>
+  
+  <div class="search-bar">
+    <input 
+      type="text" 
+      placeholder="Search records..." 
+      [(ngModel)]="searchTerm"
+      class="search-input"
+    >
+    <div class="record-count">
+      Showing {{ filteredRecords.length }} of {{ records.length }} records
+    </div>
+  </div>
+  
+  <!-- Loading indicator -->
+  <div *ngIf="loading" class="loading">
+    Loading records...
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+  
+  <!-- Records table -->
+  <div class="table-container" *ngIf="!loading && !error">
+    <table class="records-table">
+      <thead>
+        <tr>
+          <th (click)="sort('errorId')">
+            ID
+            <span *ngIf="sortField === 'errorId'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th (click)="sort('title')">
+            Title
+            <span *ngIf="sortField === 'title'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th (click)="sort('category')">
+            Category
+            <span *ngIf="sortField === 'category'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th (click)="sort('status')">
+            Status
+            <span *ngIf="sortField === 'status'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th (click)="sort('priority')">
+            Priority
+            <span *ngIf="sortField === 'priority'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th (click)="sort('dateIdentified')">
+            Date
+            <span *ngIf="sortField === 'dateIdentified'" class="sort-icon">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let record of filteredRecords" [class.high-priority]="record.priority === 'High'">
+          <td>{{ record.errorId }}</td>
+          <td class="title-cell">{{ record.title }}</td>
+          <td>{{ record.category }}</td>
+          <td>
+            <span class="status-badge" [ngClass]="'status-' + record.status.toLowerCase()">
+              {{ record.status }}
+            </span>
+          </td>
+          <td>
+            <span class="priority-badge" [ngClass]="'priority-' + record.priority.toLowerCase()">
+              {{ record.priority }}
+            </span>
+          </td>
+          <td>{{ formatDate(record.dateIdentified) }}</td>
+          <td class="actions-cell">
+            <button class="btn-view" (click)="viewRecordDetails(record)">View</button>
+            <button class="btn-export" (click)="exportToExcel(record)">Export</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <!-- No records found message -->
+    <div *ngIf="filteredRecords.length === 0" class="no-records">
+      No records found. Try adjusting your search criteria.
+    </div>
+  </div>
+  
+  <!-- Record Detail View (Modal) -->
+  <div class="modal-overlay" *ngIf="showDetailView" (click)="closeDetailView()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Record Details</h2>
+        <button class="btn-close" (click)="closeDetailView()">×</button>
+      </div>
+      
+      <div class="modal-body" *ngIf="selectedRecord">
+        <div class="record-header">
+          <div class="record-id">ID: {{ selectedRecord.errorId }}</div>
+          <div class="record-status">
+            <span class="status-badge" [ngClass]="'status-' + selectedRecord.status.toLowerCase()">
+              {{ selectedRecord.status }}
+            </span>
+          </div>
+        </div>
+        
+        <h3 class="record-title">{{ selectedRecord.title }}</h3>
+        
+        <div class="record-meta">
+          <div class="meta-item">
+            <strong>Date Identified:</strong> {{ formatDate(selectedRecord.dateIdentified) }}
+          </div>
+          <div class="meta-item">
+            <strong>Owner:</strong> {{ selectedRecord.owner }}
+          </div>
+          <div class="meta-item">
+            <strong>Priority:</strong> 
+            <span class="priority-badge" [ngClass]="'priority-' + selectedRecord.priority.toLowerCase()">
+              {{ selectedRecord.priority }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <strong>Environment:</strong> {{ selectedRecord.environment }}
+          </div>
+        </div>
+        
+        <div class="record-section">
+          <h4>Category</h4>
+          <div>{{ selectedRecord.category }} / {{ selectedRecord.subcategory }}</div>
+        </div>
+        
+        <div class="record-section">
+          <h4>Description</h4>
+          <div class="section-content">{{ selectedRecord.description }}</div>
+        </div>
+        
+        <div class="record-section">
+          <h4>Root Cause</h4>
+          <div class="section-content">{{ selectedRecord.rootCause }}</div>
+        </div>
+        
+        <div class="record-section">
+          <h4>Impact</h4>
+          <div class="section-content">{{ selectedRecord.impact }}</div>
+        </div>
+        
+        <div class="record-section">
+          <h4>Workaround</h4>
+          <div class="section-content">{{ selectedRecord.workaround }}</div>
+        </div>
+        
+        <div class="record-section" *ngIf="selectedRecord.resolution">
+          <h4>Resolution</h4>
+          <div class="section-content">{{ selectedRecord.resolution }}</div>
+        </div>
+        
+        <div class="record-section" *ngIf="selectedRecord.linkedIncidents">
+          <h4>Linked Incidents</h4>
+          <div class="section-content">{{ selectedRecord.linkedIncidents }}</div>
+        </div>
+        
+        <div class="record-section" *ngIf="selectedRecord.attachments">
+          <h4>Attachments</h4>
+          <div class="section-content">{{ selectedRecord.attachments }}</div>
+        </div>
+        
+        <div class="record-footer">
+          <button class="btn-export-detail" (click)="exportToExcel(selectedRecord)">Export to Excel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

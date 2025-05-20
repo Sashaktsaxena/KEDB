@@ -1,0 +1,87 @@
+<div class="kebd-container">
+  <div class="header">
+    <h1>Knowledge Error Database</h1>
+
+  </div>
+  
+  <!-- Timeline progress indicator -->
+  <div class="timeline-container">
+    <div class="timeline">
+      <div class="timeline-progress" [style.width.%]="progressPercentage"></div>
+    </div>
+    <div class="steps-indicator">
+      <div *ngFor="let step of formFields; let i = index" 
+           class="step"
+           [class.active]="i === currentStep"
+           [class.completed]="i < currentStep">
+        {{ i + 1 }}
+      </div>
+    </div>
+  </div>
+  
+  <!-- Form container -->
+  <div class="form-container">
+    <form [formGroup]="kebdForm" (ngSubmit)="onSubmit()">
+      <!-- Dynamic fields based on current step with animation -->
+      <div class="form-fields" [class.fade-in]="!isAnimating" [class.fade-out]="isAnimating">
+        <ng-container *ngFor="let field of formFields[currentStep]">
+          <div class="form-group">
+            <label [for]="field.name">{{ field.label }} <span class="required" *ngIf="field.validators && field.validators.length">*</span></label>
+            
+            <!-- Text input -->
+            <input *ngIf="field.type === 'text'" 
+                   [type]="field.type" 
+                   [id]="field.name" 
+                   [formControlName]="field.name"
+                   [class.invalid]="hasError(field.name)">
+            
+            <!-- Date input -->
+            <input *ngIf="field.type === 'date'" 
+                   type="date" 
+                   [id]="field.name" 
+                   [formControlName]="field.name"
+                   [class.invalid]="hasError(field.name)">
+            
+            <!-- Textarea -->
+            <textarea *ngIf="field.type === 'textarea'" 
+                      [id]="field.name" 
+                      [formControlName]="field.name"
+                      rows="3"
+                      [class.invalid]="hasError(field.name)"></textarea>
+            
+            <!-- Select dropdown -->
+            <select *ngIf="field.type === 'select'" 
+                    [id]="field.name" 
+                    [formControlName]="field.name"
+                    [class.invalid]="hasError(field.name)">
+              <option value="" disabled selected>Select an option</option>
+              <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+            </select>
+            
+            <!-- Error message -->
+            <div *ngIf="hasError(field.name)" class="error-message">
+              {{ field.label }} is required
+            </div>
+          </div>
+        </ng-container>
+      </div>
+      
+      <!-- Navigation buttons -->
+      <div class="form-navigation">
+        <button type="button" *ngIf="currentStep > 0" (click)="previous()" class="btn-secondary">Previous</button>
+        <button type="button" *ngIf="currentStep < totalSteps - 1" (click)="next()" class="btn-primary">Next</button>
+        <button type="submit" *ngIf="currentStep === totalSteps - 1" class="btn-submit">Submit</button>
+      </div>
+    </form>
+    
+    <!-- Success message -->
+    <div *ngIf="success" class="success-message">
+      KEBD record has been successfully saved!
+    </div>
+    
+    <!-- Error message -->
+    <div *ngIf="error" class="error-alert">
+      {{ error }}
+    </div>
+  </div>
+</div>

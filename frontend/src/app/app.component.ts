@@ -139,16 +139,24 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    // Add last updated date
+    const formData = {
+      ...this.kebdForm.value,
+      lastUpdated: new Date().toISOString()
+    };
+
     // Submit data to backend using the service
-    this.kebdService.createKebdRecord(this.kebdForm.value)
+    this.kebdService.createKebdRecord(formData)
       .subscribe({
         next: (response) => {
           this.success = true;
           this.error = '';
-          // Reset form after successful submission
+          
+          // Show success message briefly before redirecting
           setTimeout(() => {
-            this.resetForm();
-          }, 3000);
+            // Redirect to records page after successful submission
+            this.router.navigate(['/records']);
+          }, 2000); // Redirect after 2 seconds so user can see success message
         },
         error: (error) => {
           this.error = 'Error submitting form. Please try again.';

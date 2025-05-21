@@ -1,8 +1,8 @@
 // kebd.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError, retry } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { AuthService } from './auth/auth.service';
 
 // Environment configuration - normally would be in environment.ts
 const API_URL = 'http://localhost:3000/api';
@@ -27,72 +27,39 @@ export interface KebdRecord {
   priority: string;
   environment: string;
   attachments?: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class KebdService {
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
 
-  // Error handling method
-  private handleError(error: HttpErrorResponse) {
-    let errorMessage = '';
-    if (error.error instanceof ErrorEvent) {
-      // Client-side error
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      // Server-side error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
-    }
-    console.error(errorMessage);
-    return throwError(() => new Error(errorMessage));
-  }
-
-  // Create a new KEBD record
   createKebdRecord(record: KebdRecord): Observable<any> {
-    return this.http.post(`${API_URL}/kebd`, record)
-      .pipe(
-        retry(1),
-        catchError(this.handleError)
-      );
+    return this.http.post(`${API_URL}/kebd`, record);
   }
 
-  // Get all KEBD records
   getKebdRecords(): Observable<KebdRecord[]> {
-    return this.http.get<KebdRecord[]>(`${API_URL}/kebd`)
-      .pipe(
-        retry(1),
-        catchError(this.handleError)
-      );
+    return this.http.get<KebdRecord[]>(`${API_URL}/kebd`);
   }
 
-  // Get a single KEBD record by ID
-  getKebdRecord(id: string): Observable<KebdRecord> {
-    return this.http.get<KebdRecord>(`${API_URL}/kebd/${id}`)
-      .pipe(
-        retry(1),
-        catchError(this.handleError)
-      );
+  getKebdRecord(id: number): Observable<KebdRecord> {
+    return this.http.get<KebdRecord>(`${API_URL}/kebd/${id}`);
   }
 
-  // Update a KEBD record
-  updateKebdRecord(id: string, record: KebdRecord): Observable<any> {
-    return this.http.put(`${API_URL}/kebd/${id}`, record)
-      .pipe(
-        retry(1),
-        catchError(this.handleError)
-      );
+  updateKebdRecord(id: number, record: KebdRecord): Observable<any> {
+    return this.http.put(`${API_URL}/kebd/${id}`, record);
   }
 
-  // Delete a KEBD record
-  deleteKebdRecord(id: string): Observable<any> {
-    return this.http.delete(`${API_URL}/kebd/${id}`)
-      .pipe(
-        retry(1),
-        catchError(this.handleError)
-      );
+  deleteKebdRecord(id: number): Observable<any> {
+    return this.http.delete(`${API_URL}/kebd/${id}`);
+  }
+  
+  // Check if user can delete records (admin only)
+  canDeleteRecords(): boolean {
+    return this.authService.isAdmin();
   }
 }

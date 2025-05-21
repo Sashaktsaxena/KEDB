@@ -1,15 +1,26 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AppComponent } from './app.component'; // Add this import
+import { AuthGuard } from './auth/auth.guard';
+import { LoginComponent } from './login/login.component';
 
 export const routes: Routes = [
   { 
+    path: 'login', 
+    component: LoginComponent
+  },
+  { 
     path: '', 
-    component: AppComponent // Use component instead of loadComponent for the root component
+    loadComponent: () => import('./app.component').then(m => m.AppComponent),
+    canActivate: [AuthGuard]
   },
   { 
     path: 'records', 
-    loadComponent: () => import('./records/records.component').then(m => m.RecordsComponent) 
+    loadComponent: () => import('./records/records.component').then(m => m.RecordsComponent),
+    canActivate: [AuthGuard]
+  },
+  { 
+    path: 'unauthorized', 
+    loadComponent: () => import('./unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent)
   },
   { 
     path: '**', 

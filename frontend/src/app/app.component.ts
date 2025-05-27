@@ -19,20 +19,18 @@ export class AppComponent implements OnInit {
   submitted = false;
   success = false;
   error = '';
-  isAnimating = false; // Animation state flag
-
-  // Define all form fields based on KEBD requirements
+  isAnimating = false; 
   formFields = [
     // Step 1 - Basic Information
     [
-      { name: 'errorId', label: 'ID', type: 'text', validators: [Validators.required] },
+      // { name: 'errorId', label: 'ID', type: 'text', validators: [Validators.required] },
       { name: 'title', label: 'Title', type: 'text', validators: [Validators.required] },
       { name: 'description', label: 'Description', type: 'textarea', validators: [Validators.required] },
       { name: 'dateIdentified', label: 'Date Identified', type: 'date', validators: [Validators.required] }
     ],
     // Step 2 - Classification
     [
-      { name: 'category', label: 'Category', type: 'text', validators: [Validators.required] },
+      { name: 'category', label: 'Category', type: 'select',options:['Application ','Backend'] ,validators: [Validators.required] },
       { name: 'subcategory', label: 'Subcategory', type: 'text', validators: [Validators.required] },
       { name: 'environment', label: 'Environment', type: 'select', options: ['Development', 'Testing', 'UAT', 'Production'], validators: [Validators.required] },
       { name: 'priority', label: 'Priority', type: 'select', options: ['High', 'Medium', 'Low'], validators: [Validators.required] }

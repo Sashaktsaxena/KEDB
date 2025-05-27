@@ -1,0 +1,40 @@
+<header class="header">
+  <div class="header-container">
+    <div class="logo-container">
+      <a routerLink="/" class="logo-link">
+        <img src="../header/assets/images/logo.png" alt="Tata Power Logo" class="logo-image">
+        <div class="logo-text">
+          <span class="logo-title">Tata Power</span>
+          <span class="logo-subtitle">Knowledge Error Database</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="nav-links">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-item">Home</a>
+      <a routerLink="/records" routerLinkActive="active" class="nav-item">Records</a>
+    </nav>
+
+    <div class="user-container" *ngIf="userName">
+      <div class="user-info" (click)="toggleDropdown()">
+        <span class="user-icon">
+
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </span>
+        <span class="user-name">{{ userName }}</span>
+        <span class="user-role-badge" [class.admin-badge]="isAdmin()">{{ userRole }}</span>
+        <span class="dropdown-arrow">▼</span>
+      </div>
+
+      <div class="dropdown-menu" *ngIf="isDropdownOpen">
+        <a routerLink="/profile" class="dropdown-item">My Profile</a>
+        <a *ngIf="isAdmin()" routerLink="/admin" class="dropdown-item">Admin Settings</a>
+        <div class="dropdown-divider"></div>
+        <button (click)="logout()" class="dropdown-item logout-btn">Logout</button>
+      </div>
+    </div>
+  </div>
+</header>

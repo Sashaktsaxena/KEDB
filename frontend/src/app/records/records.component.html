@@ -12,6 +12,9 @@
       [(ngModel)]="searchTerm"
       class="search-input"
     >
+    <div> 
+      <button class="btn-export-all" (click)="exportAllToExcel()"> <span class="icon">📊</span> Export All Records</button>
+    </div>
     <div class="record-count">
       Showing {{ filteredRecords.length }} of {{ records.length }} records
     </div>
@@ -99,6 +102,9 @@
     <div *ngIf="filteredRecords.length === 0" class="no-records">
       No records found. Try adjusting your search criteria.
     </div>
+        <div *ngIf="filteredRecords.length === 0" class="no-records">
+      No records found. Try adjusting your search criteria.
+    </div>
   </div>
   
   <!-- Record Detail View (Modal) -->
@@ -179,9 +185,9 @@
           <div class="section-content">{{ selectedRecord.attachments }}</div>
         </div>
         
-        <div class="record-footer">
+        <!-- <div class="record-footer">
           <button class="btn-export-detail" (click)="exportToExcel(selectedRecord)">Export to Excel</button>
-        </div>
+        </div> -->
       </div>
     </div>
   </div>

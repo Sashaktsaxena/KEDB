@@ -249,8 +249,20 @@ app.put('/api/auth/password', authenticateToken, async (req, res) => {
 // Create KEBD record
 app.post('/api/kebd', async (req, res) => {
   try {
+    const year = new Date().getFullYear();
+    
+    const [maxIdResult]=await pool.query('SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
+      [`${year}%`]
+    );
+
+  let nextIdNum=1;
+  if (maxIdResult[0].maxIdNum) {
+    nextIdNum = maxIdResult[0].maxIdNum + 1;
+  }
+  const paddedNum=nextIdNum.toString().padStart(4, '0');
+  const generateErrorId=`${year}${paddedNum}`;
     const {
-      errorId, // ID
+    //  errorId, // ID
       title,
       description,
       rootCause,
@@ -291,7 +303,7 @@ app.post('/api/kebd', async (req, res) => {
     `;
 
     const [result] = await pool.execute(query, [
-      errorId,
+      generateErrorId,
       title,
       description,
       rootCause,

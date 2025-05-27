@@ -1,4 +1,4 @@
-// src/app/auth/auth.guard.ts
+
 import { Injectable } from '@angular/core';
 import { 
   ActivatedRouteSnapshot, 
@@ -19,7 +19,7 @@ export class AuthGuard {
     state: RouterStateSnapshot
   ): Observable<boolean> | Promise<boolean> | boolean {
     if (this.authService.isLoggedIn()) {
-      // Check if route requires admin role
+
       if (route.data['requiresAdmin'] && !this.authService.isAdmin()) {
         this.router.navigate(['/unauthorized']);
         return false;
@@ -27,7 +27,7 @@ export class AuthGuard {
       return true;
     }
 
-    // Store attempted URL for redirecting
+
     this.router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
     return false;
   }

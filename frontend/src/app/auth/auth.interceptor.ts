@@ -1,4 +1,4 @@
-// src/app/auth/auth.interceptor.ts
+
 import { Injectable } from '@angular/core';
 import {
   HttpRequest,
@@ -30,7 +30,6 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
         if (error.status === 401 || error.status === 403) {
-          // Token expired or invalid
           this.authService.logout();
           this.router.navigate(['/login']);
         }

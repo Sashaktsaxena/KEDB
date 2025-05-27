@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
   styleUrls: ['./records.component.css']
 })
 export class RecordsComponent implements OnInit {
+Math = Math;
   records: KebdRecord[] = [];
   loading: boolean = true;
   error: string = '';
@@ -21,7 +22,11 @@ export class RecordsComponent implements OnInit {
   searchTerm: string = '';
   sortField: string = 'dateIdentified';
   sortDirection: 'asc' | 'desc' = 'desc';
-
+  currentPage:number=1;
+  pageSize:number=10;
+  totalPages:number=0;
+    pageSizeOptions: number[] = [5, 10, 25, 50, 100];
+  paginationRange: number[] = [];
   constructor(private kebdService: KebdService) {}
 
   ngOnInit(): void {
@@ -85,7 +90,21 @@ export class RecordsComponent implements OnInit {
     const fileName = `KEDB_${record.errorId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   }
-  
+  exportAllToExcel(): void {
+    if (this.records.length ===0){
+      alert('No records available to export.');
+      return ;
+    }
+    const recordsToExport=this.records.map(record=>this.formatRecordForExport(record));
+    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(recordsToExport);
+    
+    const workbook: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'KEDB Record');
+    
+    // Save the file
+    const fileName = `KEDB_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }
   // Format record for Excel export (flatten the structure)
   private formatRecordForExport(record: KebdRecord): any {
     return {
@@ -161,5 +180,80 @@ export class RecordsComponent implements OnInit {
   formatDate(dateString: string): string {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
+  }
+  updatePagination(): void {
+    const filteredRecords=this.filteredRecords.length;
+    const totalPages = Math.ceil(filteredRecords / this.pageSize);
+    if(this.currentPage > totalPages) {
+      this.currentPage = 1;
+    }
+
+    this.calculatePaginatonRange();
+  }
+
+  calculatePaginatonRange(): void {
+    const range:number[] =[];
+    const maxVisiblePages=5;
+
+    let startPage =Math.max(1,this.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = startPage + maxVisiblePages - 1;
+    if (endPage > this.totalPages) {
+      endPage = this.totalPages;
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for(let i=startPage; i <= endPage; i++) {
+      range.push(i);
+    }
+
+    this.paginationRange = range;
+  }
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.currentPage = page;
+      // Scroll to top of table
+      const tableEl = document.querySelector('.records-table');
+      if (tableEl) {
+        tableEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }
+
+  previousPage(): void {
+    if (this.currentPage > 1) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  changePageSize(event: Event): void {
+    const selectElement = event.target as HTMLSelectElement;
+    this.pageSize = Number(selectElement.value);
+    this.currentPage = 1; // Reset to first page
+    this.updatePagination();
+  }
+
+  // Get paginated records to display in the current page
+  get paginatedRecords(): KebdRecord[] {
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return this.filteredRecords.slice(startIndex, startIndex + this.pageSize);
+  }
+
+
+
+
+  matchesSearchTerm(record: KebdRecord): boolean {
+    const term = this.searchTerm.toLowerCase().trim();
+    return record.errorId.toLowerCase().includes(term) ||
+      record.title.toLowerCase().includes(term) ||
+      record.description.toLowerCase().includes(term) ||
+      record.category.toLowerCase().includes(term) ||
+      record.status.toLowerCase().includes(term) ||
+      record.owner.toLowerCase().includes(term);
   }
 }

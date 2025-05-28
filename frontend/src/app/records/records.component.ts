@@ -1,20 +1,21 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { FormsModule } from '@angular/forms'; // Add this import
+import { FormsModule } from '@angular/forms';
 import { KebdService, KebdRecord } from '../kebd.service';
 import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-records',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule], // Add FormsModule here
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './records.component.html',
   styleUrls: ['./records.component.css']
 })
 export class RecordsComponent implements OnInit {
-Math = Math;
+  Math = Math; // Make Math available in template
   records: KebdRecord[] = [];
+  filteredRecordsCache: KebdRecord[] = []; // Cache for filtered records
   loading: boolean = true;
   error: string = '';
   selectedRecord: KebdRecord | null = null;
@@ -22,11 +23,22 @@ Math = Math;
   searchTerm: string = '';
   sortField: string = 'dateIdentified';
   sortDirection: 'asc' | 'desc' = 'desc';
-  currentPage:number=1;
-  pageSize:number=10;
-  totalPages:number=0;
-    pageSizeOptions: number[] = [5, 10, 25, 50, 100];
+  
+  // Pagination properties
+  currentPage: number = 1;
+  pageSize: number = 5; // Default to 5 records per page
+  pageSizeOptions: number[] = [5, 10, 25, 50, 100];
+  totalPages: number = 0;
   paginationRange: number[] = [];
+
+  // Add these properties to your class
+  customPageSizeInput: number = 0;
+  showCustomPageSizeInput: boolean = false;
+  customPageSize: string = 'custom';
+  showFilters: boolean = false;
+  dateFilter: { from: string | null; to: string | null } = { from: null, to: null };
+  priorityFilter: string = '';
+
   constructor(private kebdService: KebdService) {}
 
   ngOnInit(): void {
@@ -38,6 +50,7 @@ Math = Math;
     this.kebdService.getKebdRecords().subscribe({
       next: (data) => {
         this.records = data;
+        this.updatePagination(); // Call pagination update
         this.loading = false;
       },
       error: (error) => {
@@ -48,6 +61,7 @@ Math = Math;
     });
   }
 
+  // Your existing methods for viewing records, exporting, etc.
   viewRecordDetails(record: KebdRecord): void {
     this.selectedRecord = record;
     this.showDetailView = true;
@@ -130,19 +144,61 @@ Math = Math;
   
   // Filter records based on search term
   get filteredRecords(): KebdRecord[] {
-    if (!this.searchTerm.trim()) {
-      return this.sortRecords(this.records);
+    let filtered = this.records;
+    
+    // Apply text search filter
+    if (this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(record => this.matchesSearchTerm(record));
     }
     
+    // Apply date range filter
+    if (this.dateFilter.from || this.dateFilter.to) {
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.dateIdentified);
+        
+        if (this.dateFilter.from && this.dateFilter.to) {
+          const fromDate = new Date(this.dateFilter.from);
+          const toDate = new Date(this.dateFilter.to);
+          // Set toDate to end of day
+          toDate.setHours(23, 59, 59, 999);
+          return recordDate >= fromDate && recordDate <= toDate;
+        } else if (this.dateFilter.from) {
+          const fromDate = new Date(this.dateFilter.from);
+          return recordDate >= fromDate;
+        } else if (this.dateFilter.to) {
+          const toDate = new Date(this.dateFilter.to);
+          // Set toDate to end of day
+          toDate.setHours(23, 59, 59, 999);
+          return recordDate <= toDate;
+        }
+        
+        return true;
+      });
+    }
+    
+    // Apply priority filter
+    if (this.priorityFilter) {
+      filtered = filtered.filter(record => record.priority === this.priorityFilter);
+    }
+    
+    // Apply sorting
+    const sorted = this.sortRecords(filtered);
+    
+    this.filteredRecordsCache = sorted;
+    this.updatePagination();
+    return sorted;
+  }
+
+  // Match search term against record fields
+  matchesSearchTerm(record: KebdRecord): boolean {
     const term = this.searchTerm.toLowerCase().trim();
-    return this.sortRecords(this.records.filter(record => 
-      record.errorId.toLowerCase().includes(term) ||
+    return record.errorId.toLowerCase().includes(term) ||
       record.title.toLowerCase().includes(term) ||
       record.description.toLowerCase().includes(term) ||
       record.category.toLowerCase().includes(term) ||
       record.status.toLowerCase().includes(term) ||
-      record.owner.toLowerCase().includes(term)
-    ));
+      record.owner.toLowerCase().includes(term);
   }
   
   // Sort records based on field and direction
@@ -174,6 +230,10 @@ Math = Math;
       this.sortField = field;
       this.sortDirection = 'asc';
     }
+    
+    // Reset to first page after sorting
+    this.currentPage = 1;
+    this.updatePagination();
   }
   
   // Format date for display
@@ -181,33 +241,50 @@ Math = Math;
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
   }
+
+  // Pagination methods
   updatePagination(): void {
-    const filteredRecords=this.filteredRecords.length;
-    const totalPages = Math.ceil(filteredRecords / this.pageSize);
-    if(this.currentPage > totalPages) {
+    const filteredCount = this.filteredRecordsCache.length;
+    this.totalPages = Math.ceil(filteredCount / this.pageSize);
+    
+    // Reset to first page if current page is out of bounds
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = 1;
+    } else if (this.currentPage < 1) {
       this.currentPage = 1;
     }
-
-    this.calculatePaginatonRange();
+    
+    // Generate pagination range
+    this.calculatePaginationRange();
   }
 
-  calculatePaginatonRange(): void {
-    const range:number[] =[];
-    const maxVisiblePages=5;
-
-    let startPage =Math.max(1,this.currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = startPage + maxVisiblePages - 1;
-    if (endPage > this.totalPages) {
-      endPage = this.totalPages;
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  calculatePaginationRange(): void {
+    const range: number[] = [];
+    const maxVisiblePages = 5; // Show max 5 page numbers
+    
+    if (this.totalPages <= maxVisiblePages) {
+      // If we have fewer pages than max visible, show all pages
+      for (let i = 1; i <= this.totalPages; i++) {
+        range.push(i);
+      }
+    } else {
+      // Otherwise, calculate the range around current page
+      let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = startPage + maxVisiblePages - 1;
+      
+      if (endPage > this.totalPages) {
+        endPage = this.totalPages;
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        range.push(i);
+      }
     }
-
-    for(let i=startPage; i <= endPage; i++) {
-      range.push(i);
-    }
-
+    
     this.paginationRange = range;
   }
+
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
       this.currentPage = page;
@@ -233,27 +310,103 @@ Math = Math;
 
   changePageSize(event: Event): void {
     const selectElement = event.target as HTMLSelectElement;
-    this.pageSize = Number(selectElement.value);
+    const selectedValue = selectElement.value;
+    
+    if (selectedValue === 'custom') {
+      // Show custom input field
+      this.showCustomPageSizeInput = true;
+      this.customPageSizeInput = this.pageSize; // Set current value as default
+      return;
+    }
+    
+    this.pageSize = Number(selectedValue);
     this.currentPage = 1; // Reset to first page
     this.updatePagination();
+  }
+
+  applyCustomPageSize(): void {
+    if (this.customPageSizeInput && this.customPageSizeInput > 0) {
+      // Apply the custom page size
+      this.pageSize = Math.min(1000, this.customPageSizeInput); // Limit to 1000 max
+      this.currentPage = 1; // Reset to first page
+      this.showCustomPageSizeInput = false;
+      this.updatePagination();
+    }
+  }
+
+  cancelCustomPageSize(): void {
+    this.showCustomPageSizeInput = false;
+  }
+
+  // Toggle filters panel
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+  }
+
+  // Check if any filter is active
+  isFilterActive(): boolean {
+    return !!(this.dateFilter.from || this.dateFilter.to || this.priorityFilter);
+  }
+
+  // Get count of active filters for badge
+  getActiveFilterCount(): number {
+    let count = 0;
+    if (this.dateFilter.from || this.dateFilter.to) count++;
+    if (this.priorityFilter) count++;
+    return count;
+  }
+
+  // Format date range for display in filter summary
+  formatFilterDateRange(): string {
+    if (this.dateFilter.from && this.dateFilter.to) {
+      return `${this.formatDateShort(this.dateFilter.from)} to ${this.formatDateShort(this.dateFilter.to)}`;
+    } else if (this.dateFilter.from) {
+      return `From ${this.formatDateShort(this.dateFilter.from)}`;
+    } else if (this.dateFilter.to) {
+      return `Until ${this.formatDateShort(this.dateFilter.to)}`;
+    }
+    return '';
+  }
+
+  // Format date for filter display (shorter format)
+  formatDateShort(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // Clear date filters
+  clearDateFilters(): void {
+    this.dateFilter = { from: null, to: null };
+    this.applyFilters();
+  }
+
+  // Clear priority filter
+  clearPriorityFilter(): void {
+    this.priorityFilter = '';
+    this.applyFilters();
+  }
+
+  // Clear all filters
+  clearAllFilters(): void {
+    this.dateFilter = { from: null, to: null };
+    this.priorityFilter = '';
+    this.applyFilters();
+  }
+
+  // Apply all active filters
+  applyFilters(): void {
+    // This will trigger the filteredRecords getter
+    this.currentPage = 1; // Reset to first page when filters change
+    // Force update
+    this.searchTerm = this.searchTerm + ' ';
+    setTimeout(() => {
+      this.searchTerm = this.searchTerm.trim();
+    }, 0);
   }
 
   // Get paginated records to display in the current page
   get paginatedRecords(): KebdRecord[] {
     const startIndex = (this.currentPage - 1) * this.pageSize;
-    return this.filteredRecords.slice(startIndex, startIndex + this.pageSize);
-  }
-
-
-
-
-  matchesSearchTerm(record: KebdRecord): boolean {
-    const term = this.searchTerm.toLowerCase().trim();
-    return record.errorId.toLowerCase().includes(term) ||
-      record.title.toLowerCase().includes(term) ||
-      record.description.toLowerCase().includes(term) ||
-      record.category.toLowerCase().includes(term) ||
-      record.status.toLowerCase().includes(term) ||
-      record.owner.toLowerCase().includes(term);
+    return this.filteredRecordsCache.slice(startIndex, startIndex + this.pageSize);
   }
 }

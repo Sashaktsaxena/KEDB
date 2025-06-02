@@ -202,9 +202,9 @@ h1 {
   color: #0d47a1;
 }
 
-.status-in-progress {
-  background-color: #fff8e1;
-  color: #ff8f00;
+.status-investigating {
+  background-color: #fff3e0;
+  color: #e65100;
 }
 
 .status-resolved {

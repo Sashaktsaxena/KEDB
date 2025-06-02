@@ -77,7 +77,10 @@ export class KebdService {
     const formData = new FormData();
     formData.append('file', file);
     
-    return this.http.post(`${API_URL}/kebd/${recordId}/attachments`, formData);
+    return this.http.post(`${API_URL}/kebd/${recordId}/attachments`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    });
   }
 
   getAttachments(recordId: number): Observable<Attachment[]> {
@@ -94,24 +97,24 @@ export class KebdService {
 
   // Get archived records (status = 'Archived')
   getArchivedRecords(): Observable<KebdRecord[]> {
-    return this.http.get<KebdRecord[]>(`${API_URL}/kebd/archived`).pipe(
+    return this.http.get<any[]>(`${API_URL}/kebd/archived`).pipe(
       map(records => {
         // Convert snake_case property names to camelCase
         return records.map(record => ({
           id: record.id,
-          errorId:  record.errorId,
+          errorId: record.error_id, // <-- This is the key fix
           title: record.title,
           description: record.description,
-          rootCause:  record.rootCause,
+          rootCause: record.root_cause,
           impact: record.impact,
           category: record.category,
           subcategory: record.subcategory,
           workaround: record.workaround,
           resolution: record.resolution,
           status: record.status,
-          dateIdentified: record.dateIdentified,
-          lastUpdated: record.lastUpdated,
-          linkedIncidents: record.linkedIncidents,
+          dateIdentified: record.date_identified,
+          lastUpdated: record.last_updated,
+          linkedIncidents: record.linked_incidents,
           owner: record.owner,
           priority: record.priority,
           environment: record.environment,
@@ -124,5 +127,10 @@ export class KebdService {
   // Update a record's status
   updateRecordStatus(id: number, status: string): Observable<any> {
     return this.http.patch(`${API_URL}/kebd/${id}/status`, { status });
+  }
+
+  // Update a record's owner
+  updateRecordOwner(id: number, owner: string): Observable<any> {
+    return this.http.patch(`${API_URL}/kebd/${id}/owner`, { owner });
   }
 }

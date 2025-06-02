@@ -696,6 +696,29 @@ app.patch('/api/kebd/:id/status', async (req, res) => {
   }
 });
 
+// Update record owner
+app.patch('/api/kebd/:id/owner', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { owner } = req.body;
+    
+    if (!owner) {
+      return res.status(400).json({ message: 'Owner is required' });
+    }
+    
+    // Update record owner and last_updated timestamp
+    await pool.query(
+      'UPDATE knowledge_errors SET owner = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+      [owner, id]
+    );
+    
+    res.status(200).json({ message: 'Record owner updated successfully' });
+  } catch (error) {
+    console.error('Error updating record owner:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

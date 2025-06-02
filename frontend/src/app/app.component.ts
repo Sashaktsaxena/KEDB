@@ -1,6 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl, AbstractControl, ValidationErrors } from '@angular/forms';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { finalize, forkJoin } from 'rxjs';
@@ -21,18 +21,34 @@ export class AppComponent implements OnInit {
   success = false;
   error = '';
   isAnimating = false; 
-  formFields = [
+  formFields: FormField[][] = [
     // Step 1 - Basic Information
     [
-      // { name: 'errorId', label: 'ID', type: 'text', validators: [Validators.required] },
       { name: 'title', label: 'Title', type: 'text', validators: [Validators.required] },
       { name: 'description', label: 'Description', type: 'textarea', validators: [Validators.required] },
       { name: 'dateIdentified', label: 'Date Identified', type: 'date', validators: [Validators.required] }
     ],
     // Step 2 - Classification
     [
-      { name: 'category', label: 'Category', type: 'select',options:['Application ','Backend'] ,validators: [Validators.required] },
-      { name: 'subcategory', label: 'Subcategory', type: 'text', validators: [Validators.required] },
+      { name: 'category', label: 'Category', type: 'select', options: ['Application', 'Backend', 'Infrastructure', 'Database'], validators: [Validators.required] },
+      { 
+        name: 'subcategory', 
+        label: 'Subcategory', 
+        type: 'select', 
+        options: [
+          'UI/UX Issues',
+          'Performance',
+          'Authentication',
+          'Authorization',
+          'API Integration',
+          'Server Configuration',
+          'Network Issues',
+          'Data Corruption',
+          'Query Performance',
+          'Connection Issues'
+        ], 
+        validators: [Validators.required] 
+      },
       { name: 'environment', label: 'Environment', type: 'select', options: ['Development', 'Testing', 'UAT', 'Production'], validators: [Validators.required] },
       { name: 'priority', label: 'Priority', type: 'select', options: ['High', 'Medium', 'Low'], validators: [Validators.required] }
     ],
@@ -46,9 +62,19 @@ export class AppComponent implements OnInit {
     // Step 4 - Management
     [
       { name: 'status', label: 'Status', type: 'select', options: ['Open', 'Investigating', 'Resolved', 'Closed'], validators: [Validators.required] },
-      { name: 'owner', label: 'Owner', type: 'text', validators: [Validators.required] },
+      { 
+        name: 'owner', 
+        label: 'Owner', 
+        type: 'select', 
+        options: [
+          'Rahul Sharma',
+          'Priya Patel',
+          'Amit Singh'
+        ], 
+        validators: [Validators.required] 
+      },
       { name: 'linkedIncidents', label: 'Linked Incidents', type: 'text', validators: [] },
-      { name: 'attachments', label: 'Attachments', type: 'text', validators: [] }
+      
     ]
   ];
 
@@ -56,6 +82,8 @@ export class AppComponent implements OnInit {
   isDraggingOver: boolean = false;
   uploadProgress: number = 0;
   isUploading: boolean = false;
+
+  @ViewChild('textArea') textArea!: ElementRef;
 
   constructor(
     private fb: FormBuilder, 
@@ -296,4 +324,118 @@ export class AppComponent implements OnInit {
     else if (type.includes('text/')) return 'text';
     else return '';
   }
+
+  // Format text in textarea
+  formatText(fieldName: string, formatType: 'bold' | 'italic' | 'underline' | 'bullet'): void {
+    // Get the textarea element
+    const textareaEl = document.getElementById(fieldName) as HTMLTextAreaElement;
+    if (!textareaEl) return;
+    
+    const control = this.kebdForm.get(fieldName);
+    if (!control) return;
+    
+    const start = textareaEl.selectionStart;
+    const end = textareaEl.selectionEnd;
+    const text = control.value || '';
+    
+    // Get the selected text
+    const selectedText = text.substring(start, end);
+    
+    // Apply formatting based on type
+    let formattedText = '';
+    let cursorPosition = 0;
+    
+    if (selectedText.length === 0) {
+      // No selection, insert placeholder text
+      switch (formatType) {
+        case 'bold':
+          formattedText = '**bold text**';
+          cursorPosition = start + 2;
+          break;
+        case 'italic':
+          formattedText = '*italic text*';
+          cursorPosition = start + 1;
+          break;
+        case 'underline':
+          formattedText = '__underlined text__';
+          cursorPosition = start + 2;
+          break;
+        case 'bullet':
+          formattedText = '• List item';
+          cursorPosition = start + 2;
+          break;
+      }
+      
+      // Insert the placeholder
+      const newText = text.substring(0, start) + formattedText + text.substring(end);
+      control.setValue(newText);
+      
+      // Set cursor position inside the formatting
+      setTimeout(() => {
+        textareaEl.focus();
+        textareaEl.selectionStart = cursorPosition;
+        textareaEl.selectionEnd = cursorPosition + (formattedText.length - (formatType === 'bullet' ? 2 : 4));
+      });
+    } else {
+      // Format the selected text
+      switch (formatType) {
+        case 'bold':
+          formattedText = `**${selectedText}**`;
+          break;
+        case 'italic':
+          formattedText = `*${selectedText}*`;
+          break;
+        case 'underline':
+          formattedText = `__${selectedText}__`;
+          break;
+        case 'bullet':
+          // For multi-line selection, add bullet to each line
+          if (selectedText.includes('\n')) {
+            formattedText = selectedText
+              .split('\n')
+              .map((line: string): string => line.trim() ? `• ${line}` : line)
+              .join('\n');
+          } else {
+            formattedText = `• ${selectedText}`;
+          }
+          break;
+      }
+      
+      // Replace the selected text with formatted text
+      const newText = text.substring(0, start) + formattedText + text.substring(end);
+      control.setValue(newText);
+      
+      // Move cursor after the inserted text
+      setTimeout(() => {
+        textareaEl.focus();
+        const newPosition = start + formattedText.length;
+        textareaEl.selectionStart = newPosition;
+        textareaEl.selectionEnd = newPosition;
+      });
+    }
+  }
+
+  // Helper method to parse and display formatted text when showing preview or details
+  parseFormattedText(text: string): string {
+    if (!text) return '';
+    
+    // Convert markdown to HTML
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+      .replace(/__(.*?)__/g, '<u>$1</u>') // Underline
+      .replace(/•\s(.*?)(?:\n|$)/g, '<li>$1</li>') // Bullet points
+      .replace(/<li>(.*?)<\/li>/g, function(match) {
+        return '<ul>' + match + '</ul>';
+      });
+  }
+}
+
+// Add this interface definition
+interface FormField {
+  name: string;
+  label: string;
+  type: string;
+  validators: ((control: AbstractControl<any, any>) => ValidationErrors | null)[];
+  options?: string[]; // Make options optional with the ? modifier
 }

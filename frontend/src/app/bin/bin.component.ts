@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { KebdService, KebdRecord, Attachment } from '../kebd.service';
 
 @Component({
@@ -28,8 +29,27 @@ export class BinComponent implements OnInit {
   currentViewerImage: string = '';
   
   // Status options
-  statusOptions: string[] = ['Open', 'In Progress', 'Resolved', 'Closed'];
+  statusOptions: string[] = ['Open', 'Investigating', 'Resolved', 'Closed'];
   searchTerm: string = '';
+  
+  // Add these properties
+  @ViewChild('fileInput') fileInput!: ElementRef;
+  uploadProgress: number = 0;
+  
+  // Add owners list
+  ownerOptions: string[] = [
+    'Rahul Sharma',
+    'Priya Patel',
+    'Amit Singh',
+    'Meera Desai',
+    'Vikram Reddy'
+  ];
+  
+  // Add pagination properties
+  currentPage: number = 1;
+  pageSize: number = 10;
+  pageSizeOptions: number[] = [5, 10, 25, 50, 100];
+  totalPages: number = 1;
   
   constructor(private kebdService: KebdService) { }
 
@@ -119,30 +139,47 @@ export class BinComponent implements OnInit {
     
     this.loading = true;
     
+    // First update status
     this.kebdService.updateRecordStatus(
       this.selectedRecord.id!, 
       this.selectedRecord.status
     ).subscribe({
       next: () => {
-        // Update the record in the list
-        const index = this.archivedRecords.findIndex(r => r.id === this.selectedRecord!.id);
-        if (index !== -1) {
-          this.archivedRecords[index].status = this.selectedRecord!.status;
-        }
-        
-        // If the record is no longer archived, remove it from the list
-        if (this.selectedRecord!.status !== 'Open') {
-          this.archivedRecords = this.archivedRecords.filter(r => r.id !== this.selectedRecord!.id);
-          this.applyFilter(); // Refresh filtered records
-          this.closeDetailView();
-        }
-        
-        this.loading = false;
+        // Then update owner if it has changed
+        this.updateOwner();
       },
       error: (error) => {
         this.error = 'Failed to update record status. Please try again.';
         this.loading = false;
         console.error('Error updating record status:', error);
+      }
+    });
+  }
+  
+  // Add method to update owner
+  updateOwner(): void {
+    if (!this.selectedRecord) {
+      this.loading = false;
+      return;
+    }
+    
+    this.kebdService.updateRecordOwner(
+      this.selectedRecord.id!,
+      this.selectedRecord.owner
+    ).subscribe({
+      next: () => {
+        // Update the record in the list
+        const index = this.archivedRecords.findIndex(r => r.id === this.selectedRecord!.id);
+        if (index !== -1) {
+          this.archivedRecords[index].owner = this.selectedRecord!.owner;
+        }
+        
+        this.loading = false;
+      },
+      error: (error) => {
+        this.error = 'Failed to update record owner. Please try again.';
+        this.loading = false;
+        console.error('Error updating record owner:', error);
       }
     });
   }
@@ -232,6 +269,47 @@ export class BinComponent implements OnInit {
       error: (error) => {
         console.error('Error deleting attachment:', error);
         alert('Failed to delete attachment. Please try again.');
+      }
+    });
+  }
+  
+  // Add file selection method
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+    
+    const file = input.files[0];
+    this.uploadAttachment(file);
+  }
+  
+  // Add file upload method
+  uploadAttachment(file: File): void {
+    if (!this.selectedRecord || !this.selectedRecord.id) {
+      this.error = 'Cannot upload attachment: No record selected';
+      return;
+    }
+    
+    this.uploadProgress = 0;
+    
+    this.kebdService.uploadAttachment(this.selectedRecord.id, file).subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress && event.total) {
+          this.uploadProgress = Math.round(100 * event.loaded / event.total);
+        } else if (event instanceof HttpResponse) {
+          // Upload complete, refresh attachments
+          setTimeout(() => {
+            this.uploadProgress = 0;
+            this.loadAttachments(this.selectedRecord!.id!);
+          }, 500);
+        }
+      },
+      error: (error) => {
+        this.uploadProgress = 0;
+        console.error('Error uploading attachment:', error);
+        this.error = 'Failed to upload attachment. Please try again.';
       }
     });
   }

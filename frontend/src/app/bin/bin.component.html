@@ -13,7 +13,9 @@
       class="search-input"
     >
     <div class="record-count">
-      Showing {{ filteredRecords.length }} of {{ archivedRecords.length }} archived records
+      Showing {{ (currentPage - 1) * pageSize + 1 }} - 
+      {{ Math.min(currentPage * pageSize, archivedRecords.length) }} 
+      of {{ archivedRecords.length }} archived records
     </div>
   </div>
   
@@ -59,6 +61,51 @@
         </span>
       </div>
       <div class="col-owner">{{ record.owner }}</div>
+    </div>
+  </div>
+  
+  <!-- Add pagination below the grid -->
+  <div *ngIf="!loading && !error && archivedRecords.length > 0" class="pagination-container">
+    <div class="pagination-controls">
+      <button 
+        class="pagination-btn" 
+        [disabled]="currentPage === 1" 
+        (click)="changePage(1)">
+        &laquo;
+      </button>
+      <button 
+        class="pagination-btn" 
+        [disabled]="currentPage === 1" 
+        (click)="changePage(currentPage - 1)">
+        &lsaquo;
+      </button>
+      
+      <div class="pagination-info">
+        Page {{ currentPage }} of {{ totalPages }}
+      </div>
+      
+      <button 
+        class="pagination-btn" 
+        [disabled]="currentPage === totalPages" 
+        (click)="changePage(currentPage + 1)">
+        &rsaquo;
+      </button>
+      <button 
+        class="pagination-btn" 
+        [disabled]="currentPage === totalPages" 
+        (click)="changePage(totalPages)">
+        &raquo;
+      </button>
+    </div>
+    
+    <div class="page-size-selector">
+      <label for="pageSize">Records per page:</label>
+      <select 
+        id="pageSize" 
+        [(ngModel)]="pageSize" 
+        (change)="changePageSize()">
+        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+      </select>
     </div>
   </div>
   

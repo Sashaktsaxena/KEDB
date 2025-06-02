@@ -13,6 +13,7 @@ import { KebdService, KebdRecord, Attachment } from '../kebd.service';
   styleUrls: ['./bin.component.css']
 })
 export class BinComponent implements OnInit {
+  Math = Math;
   archivedRecords: KebdRecord[] = [];
   filteredRecords: KebdRecord[] = [];
   loading: boolean = true;
@@ -73,22 +74,34 @@ export class BinComponent implements OnInit {
     });
   }
 
-  // Filter records based on search term
+  // Filter records based on search term and apply pagination
   applyFilter(): void {
-    if (!this.searchTerm.trim()) {
-      this.filteredRecords = this.archivedRecords;
-      return;
+    // First apply search filtering
+    let filtered = this.archivedRecords;
+    
+    if (this.searchTerm.trim()) {
+      const searchTerm = this.searchTerm.toLowerCase().trim();
+      filtered = this.archivedRecords.filter(record => 
+        (record.errorId && record.errorId.toLowerCase().includes(searchTerm)) ||
+        record.title.toLowerCase().includes(searchTerm) ||
+        record.category.toLowerCase().includes(searchTerm) ||
+        record.subcategory.toLowerCase().includes(searchTerm) ||
+        record.owner.toLowerCase().includes(searchTerm) ||
+        record.status.toLowerCase().includes(searchTerm)
+      );
     }
     
-    const searchTerm = this.searchTerm.toLowerCase().trim();
-    this.filteredRecords = this.archivedRecords.filter(record => 
-      record.errorId.toLowerCase().includes(searchTerm) ||
-      record.title.toLowerCase().includes(searchTerm) ||
-      record.category.toLowerCase().includes(searchTerm) ||
-      record.subcategory.toLowerCase().includes(searchTerm) ||
-      record.owner.toLowerCase().includes(searchTerm) ||
-      record.status.toLowerCase().includes(searchTerm)
-    );
+    // Calculate total pages
+    this.totalPages = Math.max(1, Math.ceil(filtered.length / this.pageSize));
+    
+    // Adjust current page if needed
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
+    
+    // Apply pagination
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    this.filteredRecords = filtered.slice(startIndex, startIndex + this.pageSize);
   }
 
   // Open record details
@@ -312,5 +325,21 @@ export class BinComponent implements OnInit {
         this.error = 'Failed to upload attachment. Please try again.';
       }
     });
+  }
+
+  // Change the current page
+  changePage(page: number): void {
+    if (page < 1 || page > this.totalPages) {
+      return;
+    }
+    
+    this.currentPage = page;
+    this.applyFilter();
+  }
+
+  // Change the page size
+  changePageSize(): void {
+    this.currentPage = 1; // Reset to first page when changing page size
+    this.applyFilter();
   }
 }

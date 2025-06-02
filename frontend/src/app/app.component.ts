@@ -2,7 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
+import { finalize, forkJoin } from 'rxjs';
 import { KebdService } from './kebd.service';
 
 @Component({
@@ -50,6 +51,11 @@ export class AppComponent implements OnInit {
       { name: 'attachments', label: 'Attachments', type: 'text', validators: [] }
     ]
   ];
+
+  selectedFiles: File[] = [];
+  isDraggingOver: boolean = false;
+  uploadProgress: number = 0;
+  isUploading: boolean = false;
 
   constructor(
     private fb: FormBuilder, 
@@ -129,34 +135,80 @@ export class AppComponent implements OnInit {
     return (this.currentStep / (this.totalSteps - 1)) * 100;
   }
 
-  onSubmit() {
-    this.submitted = true;
-
-    // Check if form is valid
+  onSubmit(): void {
     if (this.kebdForm.invalid) {
+      // Mark all fields as touched to show validation errors
+      Object.keys(this.kebdForm.controls).forEach(key => {
+        const control = this.kebdForm.get(key);
+        control?.markAsTouched();
+      });
       return;
     }
 
-    // Add last updated date
     const formData = {
       ...this.kebdForm.value,
       lastUpdated: new Date().toISOString()
     };
 
-    // Submit data to backend using the service
+    this.isUploading = true;
+    this.uploadProgress = 0;
+
+    // First submit the form data
     this.kebdService.createKebdRecord(formData)
+      .pipe(
+        finalize(() => {
+          if (this.selectedFiles.length === 0) {
+            this.isUploading = false;
+          }
+        })
+      )
       .subscribe({
         next: (response) => {
-          this.success = true;
-          this.error = '';
+          // Get the created record ID
+          const recordId = response.id;
           
-          // Show success message briefly before redirecting
-          setTimeout(() => {
-            // Redirect to records page after successful submission
-            this.router.navigate(['/records']);
-          }, 2000); // Redirect after 2 seconds so user can see success message
+          if (this.selectedFiles.length === 0) {
+            // No files to upload
+            this.success = true;
+            this.error = '';
+            
+            // Show success message briefly before redirecting
+            setTimeout(() => {
+              this.router.navigate(['/records']);
+            }, 2000);
+            return;
+          }
+          
+          // Upload each file individually
+          const uploadObservables = this.selectedFiles.map(file => 
+            this.kebdService.uploadAttachment(recordId, file)
+          );
+          
+          // Execute all uploads in parallel
+          forkJoin(uploadObservables)
+            .pipe(
+              finalize(() => {
+                this.isUploading = false;
+              })
+            )
+            .subscribe({
+              next: (responses) => {
+                this.success = true;
+                this.error = '';
+                
+                // Show success message briefly before redirecting
+                setTimeout(() => {
+                  this.router.navigate(['/records']);
+                }, 2000);
+              },
+              error: (error) => {
+                this.error = 'Error uploading attachments. Record was saved but some files could not be uploaded.';
+                console.error('Error uploading attachments:', error);
+              }
+            });
         },
         error: (error) => {
+          this.isUploading = false;
           this.error = 'Error submitting form. Please try again.';
           console.error('Error submitting form:', error);
         }
@@ -179,5 +231,69 @@ export class AppComponent implements OnInit {
   // Add a method to navigate to records view
   viewRecords() {
     this.router.navigate(['/records']);
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver = true;
+  }
+
+  onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver = false;
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.isDraggingOver = false;
+    
+    if (event.dataTransfer?.files) {
+      this.handleFiles(event.dataTransfer.files);
+    }
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      this.handleFiles(input.files);
+    }
+  }
+
+  handleFiles(fileList: FileList): void {
+    const newFiles = Array.from(fileList);
+    
+    // Check file size
+    for (const file of newFiles) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        alert(`File "${file.name}" exceeds the 5MB size limit`);
+        return;
+      }
+    }
+    
+    this.selectedFiles = [...this.selectedFiles, ...newFiles];
+  }
+
+  removeFile(index: number): void {
+    this.selectedFiles = this.selectedFiles.filter((_, i) => i !== index);
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  getFileIconClass(file: File): string {
+    const type = file.type;
+    
+    if (type.startsWith('image/')) return 'image';
+    else if (type === 'application/pdf') return 'pdf';
+    else if (type.includes('word') || type.includes('doc')) return 'doc';
+    else if (type.includes('excel') || type.includes('sheet')) return 'spreadsheet';
+    else if (type.includes('text/')) return 'text';
+    else return '';
   }
 }

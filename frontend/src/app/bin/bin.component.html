@@ -1,0 +1,195 @@
+<div class="bin-container">
+  <div class="header">
+    <h1>Knowledge Error Database Archive</h1>
+    <button class="btn-back" routerLink="/records">← Back to Records</button>
+  </div>
+  
+  <div class="search-bar">
+    <input 
+      type="text" 
+      placeholder="Search archived records..." 
+      [(ngModel)]="searchTerm"
+      (input)="applyFilter()"
+      class="search-input"
+    >
+    <div class="record-count">
+      Showing {{ filteredRecords.length }} of {{ archivedRecords.length }} archived records
+    </div>
+  </div>
+  
+  <!-- Loading indicator -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading archived records...</p>
+  </div>
+  
+  <!-- Error message -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+  </div>
+  
+  <!-- No records message -->
+  <div *ngIf="!loading && !error && filteredRecords.length === 0" class="empty-state">
+    <div class="empty-icon">🗑️</div>
+    <h2>Archive is Empty</h2>
+    <p>There are no archived records to display.</p>
+  </div>
+  
+  <!-- Records grid -->
+  <div *ngIf="!loading && !error && filteredRecords.length > 0" class="records-grid">
+    <div class="grid-header">
+      <div class="col-id">ID</div>
+      <div class="col-title">Title</div>
+      <div class="col-category">Category</div>
+      <div class="col-subcategory">Subcategory</div>
+      <div class="col-status">Status</div>
+      <div class="col-owner">Owner</div>
+    </div>
+    
+    <div *ngFor="let record of filteredRecords" class="grid-row">
+      <div class="col-id" (click)="openRecordDetails(record)">
+        <a href="javascript:void(0)" class="record-id-link">{{ record.errorId }}</a>
+      </div>
+      <div class="col-title" [title]="record.title">{{ record.title }}</div>
+      <div class="col-category">{{ record.category }}</div>
+      <div class="col-subcategory">{{ record.subcategory }}</div>
+      <div class="col-status">
+        <span class="status-badge" [ngClass]="'status-' + record.status.toLowerCase().replace(' ', '-')">
+          {{ record.status }}
+        </span>
+      </div>
+      <div class="col-owner">{{ record.owner }}</div>
+    </div>
+  </div>
+  
+  <!-- Record Detail Modal -->
+  <div class="modal-overlay" *ngIf="showDetailView" (click)="closeDetailView()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Record Details - {{ selectedRecord?.errorId }}</h2>
+        <button class="btn-close" (click)="closeDetailView()">×</button>
+      </div>
+      
+      <div class="modal-body" *ngIf="selectedRecord">
+        <div class="record-details-grid">
+          <div class="detail-row">
+            <div class="detail-label">Title:</div>
+            <div class="detail-value">{{ selectedRecord.title }}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Category:</div>
+            <div class="detail-value">{{ selectedRecord.category }}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Subcategory:</div>
+            <div class="detail-value">{{ selectedRecord.subcategory }}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Status:</div>
+            <div class="detail-value status-select">
+              <select [(ngModel)]="selectedRecord.status">
+                <option *ngFor="let status of statusOptions" [value]="status">{{ status }}</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Owner:</div>
+            <div class="detail-value">{{ selectedRecord.owner }}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Priority:</div>
+            <div class="detail-value">
+              <span class="priority-badge" [ngClass]="'priority-' + selectedRecord.priority.toLowerCase()">
+                {{ selectedRecord.priority }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Date Identified:</div>
+            <div class="detail-value">{{ formatDate(selectedRecord.dateIdentified) }}</div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Last Updated:</div>
+            <div class="detail-value">{{ formatDate(selectedRecord.lastUpdated || '') }}</div>
+          </div>
+          
+          <div class="detail-row full-width">
+            <div class="detail-label">Description:</div>
+            <div class="detail-value description">{{ selectedRecord.description }}</div>
+          </div>
+        </div>
+        
+        <!-- Attachments section -->
+        <div class="attachments-section">
+          <h3>Attachments</h3>
+          
+          <div *ngIf="loadingAttachments" class="loading-attachments">
+            Loading attachments...
+          </div>
+          
+          <div *ngIf="!loadingAttachments && attachments.length === 0" class="no-attachments">
+            No attachments for this record.
+          </div>
+          
+          <div *ngIf="!loadingAttachments && attachments.length > 0" class="attachments-container">
+            <div *ngFor="let attachment of attachments" class="attachment-item">
+              <!-- Image preview for image files -->
+              <div *ngIf="isImageFile(attachment)" class="attachment-preview">
+                <img [src]="getAttachmentUrl(attachment.id)" alt="Attachment preview" class="attachment-thumbnail" (click)="openAttachment(attachment)">
+              </div>
+              
+              <!-- Icon for non-image files -->
+              <div *ngIf="!isImageFile(attachment)" class="attachment-icon" [ngClass]="getAttachmentIconClass(attachment)" (click)="openAttachment(attachment)">
+                <span class="icon-text">{{ getFileExtension(attachment.file_name) }}</span>
+              </div>
+              
+              <div class="attachment-details">
+                <div class="attachment-name" [title]="attachment.file_name">{{ attachment.file_name }}</div>
+                <div class="attachment-size">{{ formatFileSize(attachment.file_size) }}</div>
+              </div>
+              
+              <div class="attachment-actions">
+                <a [href]="getAttachmentUrl(attachment.id)" download [title]="'Download ' + attachment.file_name" class="btn-download">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                </a>
+                <button class="btn-delete-attachment" (click)="deleteAttachment(attachment.id)" title="Delete attachment">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn-restore" (click)="restoreRecord()" *ngIf="selectedRecord?.status === 'Archived'">Restore Record</button>
+        <button class="btn-update" (click)="updateStatus()">Update Status</button>
+        <button class="btn-delete" (click)="deleteRecordPermanently()">Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Image viewer modal -->
+  <div class="image-viewer" *ngIf="viewerOpen" (click)="closeViewer()">
+    <div class="image-viewer-content" (click)="$event.stopPropagation()">
+      <img [src]="currentViewerImage" alt="Full size image" class="viewer-image">
+      <button class="close-viewer" (click)="closeViewer()">×</button>
+    </div>
+  </div>
+</div>

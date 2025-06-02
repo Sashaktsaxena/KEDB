@@ -233,3 +233,7 @@
     display: none;
   }
 }
+.bin-icon {
+  margin-right: 5px;
+  font-size: 16px;
+}

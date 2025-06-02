@@ -6,6 +6,8 @@ const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -73,11 +75,43 @@ const isAdmin = (req, res, next) => {
   }
 };
 
+// Configure multer for memory storage (not disk)
+const storage = multer.memoryStorage();
+
+// File filter to restrict file types
+const fileFilter = (req, file, cb) => {
+  // Accept images and common document types
+  const allowedTypes = [
+    'image/jpeg', 'image/png', 'image/gif', 
+    'application/pdf', 'application/msword', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain'
+  ];
+  
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Allowed types: images, PDF, Word, Excel, text files'), false);
+  }
+};
+
+// Setup multer upload with memory storage
+const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
+
 // API Routes
 
 // Login route
 app.post('/api/auth/login', async (req, res) => {
   try {
+    console.log('Login request received:', req.body);
     const { username, password } = req.body;
 
     // Validate input
@@ -367,7 +401,21 @@ app.get('/api/kebd', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch KEBD records', error: error.message });
   }
 });
-
+app.get('/api/kebd/archived', async (req, res) => {
+  console.log('Fetching archived records');
+  try {
+    console.log('Fetching archived records');
+    // Query database for records with status 'Archived'
+    const [rows] = await pool.query(
+      'SELECT * FROM knowledge_errors ORDER BY last_updated DESC'
+    );
+    
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error fetching archived records:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 // Get KEBD record by ID
 app.get('/api/kebd/:id', async (req, res) => {
   try {
@@ -497,6 +545,154 @@ app.delete('/api/kebd/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting KEBD record:', error);
     res.status(500).json({ message: 'Failed to delete KEBD record', error: error.message });
+  }
+});
+
+// API endpoint to upload files for a record
+app.post('/api/kebd/:id/attachments', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    // Get current record
+    const [records] = await pool.query('SELECT * FROM knowledge_errors WHERE id = ?', [id]);
+    
+    if (records.length === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+    
+    // File metadata
+    const fileMetadata = {
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      uploadedAt: new Date().toISOString()
+    };
+    
+    // Insert file into attachments table
+    const [result] = await pool.execute(
+      'INSERT INTO attachments (record_id, file_name, file_type, file_size, file_data) VALUES (?, ?, ?, ?, ?)',
+      [
+        id,
+        fileMetadata.originalName,
+        fileMetadata.mimetype,
+        fileMetadata.size,
+        req.file.buffer // Store the actual file data as BLOB
+      ]
+    );
+    
+    // Return success with file metadata
+    res.status(201).json({
+      message: 'File uploaded successfully',
+      attachmentId: result.insertId,
+      metadata: {
+        ...fileMetadata,
+        id: result.insertId
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ message: 'Failed to upload file', error: error.message });
+  }
+});
+
+// API endpoint to get all attachments for a record
+app.get('/api/kebd/:id/attachments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get attachments metadata (without the actual blob data)
+    const [attachments] = await pool.query(
+      'SELECT id, record_id, file_name, file_type, file_size, created_at FROM attachments WHERE record_id = ?',
+      [id]
+    );
+    
+    res.status(200).json(attachments);
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
+    res.status(500).json({ message: 'Failed to fetch attachments', error: error.message });
+  }
+});
+
+// API endpoint to get a specific attachment (including blob data)
+app.get('/api/attachments/:attachmentId', async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    
+    // Get attachment with blob data
+    const [attachments] = await pool.query(
+      'SELECT * FROM attachments WHERE id = ?',
+      [attachmentId]
+    );
+    
+    if (attachments.length === 0) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+    
+    const attachment = attachments[0];
+    
+    // Set appropriate content type header
+    res.setHeader('Content-Type', attachment.file_type);
+    res.setHeader('Content-Disposition', `inline; filename="${attachment.file_name}"`);
+    
+    // Send the file data
+    res.send(attachment.file_data);
+  } catch (error) {
+    console.error('Error fetching attachment:', error);
+    res.status(500).json({ message: 'Failed to fetch attachment', error: error.message });
+  }
+});
+
+// API endpoint to delete an attachment
+app.delete('/api/attachments/:attachmentId', authenticateToken, async (req, res) => {
+  try {
+    const { attachmentId } = req.params;
+    
+    // Delete the attachment
+    const [result] = await pool.execute(
+      'DELETE FROM attachments WHERE id = ?',
+      [attachmentId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Attachment not found' });
+    }
+    
+    res.status(200).json({ message: 'Attachment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting attachment:', error);
+    res.status(500).json({ message: 'Failed to delete attachment', error: error.message });
+  }
+});
+
+// Add these API endpoints
+
+// Get archived records
+
+
+// Update record status
+app.patch('/api/kebd/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    // Update record status and last_updated timestamp
+    await pool.query(
+      'UPDATE knowledge_errors SET status = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+      [status, id]
+    );
+    
+    res.status(200).json({ message: 'Record status updated successfully' });
+  } catch (error) {
+    console.error('Error updating record status:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 

@@ -23,6 +23,11 @@ export const routes: Routes = [
     loadComponent: () => import('./unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent)
   },
   { 
+    path: 'bin', 
+    loadComponent: () => import('./bin/bin.component').then(m => m.BinComponent),
+    canActivate: [AuthGuard]
+  },
+  { 
     path: '**', 
     redirectTo: '' 
   }

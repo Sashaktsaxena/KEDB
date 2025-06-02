@@ -53,6 +53,44 @@
           </div>
         </ng-container>
       </div>
+       <div class="form-group" *ngIf="currentStep === totalSteps - 1">
+      <label>Attachments <span class="helper-text">(Images, PDFs, documents up to 5MB each)</span></label>
+      
+      <div class="file-upload-container">
+        <div class="file-drop-area" 
+             [class.active]="isDraggingOver"
+             (dragover)="onDragOver($event)" 
+             (dragleave)="onDragLeave($event)" 
+             (drop)="onDrop($event)">
+          <div class="drop-message">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Drag & drop files here or</span>
+            <button type="button" class="btn-browse" (click)="fileInput.click()">Browse Files</button>
+            <input #fileInput type="file" (change)="onFileSelected($event)" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+          </div>
+        </div>
+        
+        <div class="selected-files" *ngIf="selectedFiles.length > 0">
+          <h4>Selected Files ({{ selectedFiles.length }})</h4>
+          <ul class="file-list">
+            <li *ngFor="let file of selectedFiles; let i = index" class="file-item">
+              <div class="file-info">
+                <div class="file-icon" [ngClass]="getFileIconClass(file)"></div>
+                <div class="file-details">
+                  <div class="file-name">{{ file.name }}</div>
+                  <div class="file-size">{{ formatFileSize(file.size) }}</div>
+                </div>
+              </div>
+              <button type="button" class="btn-remove-file" (click)="removeFile(i)">×</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
       
       <!-- Navigation buttons -->
       <div class="form-navigation">
@@ -71,5 +109,8 @@
     <div *ngIf="error" class="error-alert">
       {{ error }}
     </div>
+    
+    <!-- Add this at the appropriate location in your form -->
+   
   </div>
 </div>

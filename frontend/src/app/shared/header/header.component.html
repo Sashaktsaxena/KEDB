@@ -13,6 +13,9 @@
     <nav class="nav-links">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-item">Home</a>
       <a routerLink="/records" routerLinkActive="active" class="nav-item">Records</a>
+      <a routerLink="/bin" routerLinkActive="active" class="nav-item">
+        <span class="bin-icon">🗑️</span> Archive
+      </a>
     </nav>
 
     <div class="user-container" *ngIf="userName">

@@ -77,7 +77,8 @@ export class AppComponent implements OnInit {
       
     ]
   ];
-
+  users:any[] = [];
+  loadingUsers: boolean = false;
   selectedFiles: File[] = [];
   isDraggingOver: boolean = false;
   uploadProgress: number = 0;

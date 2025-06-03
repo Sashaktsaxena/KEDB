@@ -279,14 +279,25 @@ app.put('/api/auth/password', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to update password', error: error.message });
   }
 });
-
+app.get('/api/users',async (req, res) => {
+  try{
+    const [users]=await pool.query('SELECT id,employee_id, full_name , department FROM users ORDER BY full_name ');
+    res.status(200).json(users);
+  }catch(error){
+    console.error('error fetching users:',error);
+    res.status(500).json({message: 'Failed to fetch users', error: error.message});
+  }
+  }
+)
 // Create KEBD record
 app.post('/api/kebd', async (req, res) => {
   try {
     const year = new Date().getFullYear();
-    
+    const currentYearShort=year.toString().slice(-2);
+    const nextyearshort=(year+1).toString().slice(-2);
+    const yearPrefix=`${currentYearShort}${nextyearshort}`;
     const [maxIdResult]=await pool.query('SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
-      [`${year}%`]
+      [`${yearPrefix}%`]
     );
 
   let nextIdNum=1;
@@ -294,7 +305,7 @@ app.post('/api/kebd', async (req, res) => {
     nextIdNum = maxIdResult[0].maxIdNum + 1;
   }
   const paddedNum=nextIdNum.toString().padStart(4, '0');
-  const generateErrorId=`${year}${paddedNum}`;
+  const generateErrorId=`${yearPrefix}${paddedNum}`;
     const {
     //  errorId, // ID
       title,

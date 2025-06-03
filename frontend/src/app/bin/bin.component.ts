@@ -159,6 +159,10 @@ export class BinComponent implements OnInit {
     ).subscribe({
       next: () => {
         // Then update owner if it has changed
+        const index = this.archivedRecords.findIndex(r => r.id === this.selectedRecord!.id);
+        if (index!=-1){
+          this.archivedRecords[index].status = this.selectedRecord!.status;
+        }
         this.updateOwner();
       },
       error: (error) => {

@@ -104,7 +104,7 @@
         id="pageSize" 
         [(ngModel)]="pageSize" 
         (change)="changePageSize()">
-        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        <option *ngFor="let size of pageSizeOptions" [value]="size" >{{ size }}</option>
       </select>
     </div>
   </div>
@@ -145,7 +145,14 @@
           
           <div class="detail-row">
             <div class="detail-label">Owner:</div>
-            <div class="detail-value">{{ selectedRecord.owner }}</div>
+            <div class="detail-row">
+  <div class="detail-label">Owner:</div>
+  <div class="detail-value owner-select">
+    <select [(ngModel)]="selectedRecord.owner">
+      <option *ngFor="let owner of ownerOptions" [value]="owner">{{ owner }}</option>
+    </select>
+  </div>
+</div>
           </div>
           
           <div class="detail-row">

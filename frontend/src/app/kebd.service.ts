@@ -7,7 +7,12 @@ import { AuthService } from './auth/auth.service';
 
 // Environment configuration - normally would be in environment.ts
 const API_URL = 'http://localhost:3000/api';
-
+export interface User{
+  id:number ;
+  employeeId: string;
+  fullName :string ;
+  department: string;
+}
 // KEBD record interface
 export interface KebdRecord {
   id?: number;
@@ -94,7 +99,7 @@ export class KebdService {
   deleteAttachment(attachmentId: number): Observable<any> {
     return this.http.delete(`${API_URL}/attachments/${attachmentId}`);
   }
-
+  
   // Get archived records (status = 'Archived')
   getArchivedRecords(): Observable<KebdRecord[]> {
     return this.http.get<any[]>(`${API_URL}/kebd/archived`).pipe(
@@ -132,5 +137,15 @@ export class KebdService {
   // Update a record's owner
   updateRecordOwner(id: number, owner: string): Observable<any> {
     return this.http.patch(`${API_URL}/kebd/${id}/owner`, { owner });
+  }
+  getUsers():Observable<User[]>{
+    return this.http.get<any[]>(`${API_URL}/users`).pipe(
+      map(users => users.map(user => ({
+        id: user.id,
+        employeeId: user.employee_id,
+        fullName: user.full_name,
+        department: user.department
+      })))
+    );
   }
 }

@@ -22,13 +22,6 @@ export class AppComponent implements OnInit {
   error = '';
   isAnimating = false; 
   formFields: FormField[][] = [
-    // Step 1 - Basic Information
-    [
-      { name: 'title', label: 'Title', type: 'text', validators: [Validators.required] },
-      { name: 'description', label: 'Description', type: 'textarea', validators: [Validators.required] },
-      { name: 'dateIdentified', label: 'Date Identified', type: 'date', validators: [Validators.required] }
-    ],
-    // Step 2 - Classification
     [
       { name: 'category', label: 'Category', type: 'select', options: ['Application', 'Backend', 'Infrastructure', 'Database'], validators: [Validators.required] },
       { 
@@ -52,6 +45,14 @@ export class AppComponent implements OnInit {
       { name: 'environment', label: 'Environment', type: 'select', options: ['Development', 'Testing', 'UAT', 'Production'], validators: [Validators.required] },
       { name: 'priority', label: 'Priority', type: 'select', options: ['High', 'Medium', 'Low'], validators: [Validators.required] }
     ],
+    // Step 1 - Basic Information
+    [
+      { name: 'title', label: 'Title', type: 'text', validators: [Validators.required] },
+      { name: 'description', label: 'Description', type: 'textarea', validators: [Validators.required] },
+      { name: 'dateIdentified', label: 'Date Identified', type: 'date', validators: [Validators.required] }
+    ],
+    // Step 2 - Classification
+    
     // Step 3 - Technical Details
     [
       { name: 'rootCause', label: 'Root Cause', type: 'textarea', validators: [Validators.required] },
@@ -66,11 +67,7 @@ export class AppComponent implements OnInit {
         name: 'owner', 
         label: 'Owner', 
         type: 'select', 
-        options: [
-          'Rahul Sharma',
-          'Priya Patel',
-          'Amit Singh'
-        ], 
+        options: [], 
         validators: [Validators.required] 
       },
       { name: 'linkedIncidents', label: 'Linked Incidents', type: 'text', validators: [] },
@@ -103,6 +100,7 @@ export class AppComponent implements OnInit {
     
     // Calculate total steps
     this.totalSteps = this.formFields.length;
+    this.loadUsers();
   }
 
   // Navigate to next step with animation
@@ -153,7 +151,29 @@ export class AppComponent implements OnInit {
       }, 300); // Match this with the CSS transition duration
     }
   }
+  loadUsers() :void{
+    this.loadingUsers = true;
+    this.kebdService.getUsers().subscribe({
+      next:(users)=>{
+        this.users=users;
+        this.loadingUsers=false;
+        this.updateOwnerOptions();
+      },
+      error:(error)=>{
+        console.error('Error Loading Users',error);
+        this.loadingUsers = false;
+      }
+    })
+  }
 
+  updateOwnerOptions():void{
+    for (const stepFields of this.formFields){
+      const ownerField=stepFields.find(field => field.name === 'owner');
+      if(ownerField && this.users.length >0){
+        ownerField.options=this.users.map(user => user.fullName);
+      }
+    }
+  }
   // Check if field should be shown in current step
   isFieldInCurrentStep(fieldName: string): boolean {
     return this.formFields[this.currentStep].some(field => field.name === fieldName);

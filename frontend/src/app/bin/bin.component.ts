@@ -45,7 +45,8 @@ export class BinComponent implements OnInit {
     'Meera Desai',
     'Vikram Reddy'
   ];
-  
+  users: any[] = [];
+loadingUsers: boolean = false;
   // Add pagination properties
   currentPage: number = 1;
   pageSize: number = 10;
@@ -54,9 +55,10 @@ export class BinComponent implements OnInit {
   
   constructor(private kebdService: KebdService) { }
 
-  ngOnInit(): void {
-    this.loadArchivedRecords();
-  }
+ngOnInit(): void {
+  this.loadArchivedRecords();
+  this.loadUsers(); // Add this line
+}
 
   loadArchivedRecords(): void {
     this.loading = true;
@@ -73,6 +75,19 @@ export class BinComponent implements OnInit {
       }
     });
   }
+  loadUsers(): void {
+  this.loadingUsers = true;
+  this.kebdService.getUsers().subscribe({
+    next: (users) => {
+      this.users = users;
+      this.loadingUsers = false;
+    },
+    error: (error) => {
+      console.error('Error loading users:', error);
+      this.loadingUsers = false;
+    }
+  });
+}
 
   // Filter records based on search term and apply pagination
   applyFilter(): void {

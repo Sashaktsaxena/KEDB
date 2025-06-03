@@ -80,6 +80,8 @@
               <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
             </select>
             
+       
+            
             <!-- Error message -->
             <div *ngIf="hasError(field.name)" class="error-message">
               {{ field.label }} is required

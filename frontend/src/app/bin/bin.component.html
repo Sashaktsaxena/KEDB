@@ -145,14 +145,14 @@
           
           <div class="detail-row">
             <div class="detail-label">Owner:</div>
-            <div class="detail-row">
-  <div class="detail-label">Owner:</div>
-  <div class="detail-value owner-select">
-    <select [(ngModel)]="selectedRecord.owner">
-      <option *ngFor="let owner of ownerOptions" [value]="owner">{{ owner }}</option>
-    </select>
-  </div>
-</div>
+            <div class="detail-value owner-select">
+              <select [(ngModel)]="selectedRecord.owner" [disabled]="loadingUsers">
+                <option *ngIf="loadingUsers" value="" disabled>Loading users...</option>
+                <option *ngFor="let user of users" [value]="user.fullName">
+                  {{ user.fullName }} ({{ user.department }})
+                </option>
+              </select>
+            </div>
           </div>
           
           <div class="detail-row">

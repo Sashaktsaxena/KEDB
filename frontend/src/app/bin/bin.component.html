@@ -182,7 +182,23 @@
         
         <!-- Attachments section -->
         <div class="attachments-section">
-          <h3>Attachments</h3>
+          <div class="attachments-header">
+            <h3>Attachments</h3>
+            <div class="attachment-actions-header">
+              <input 
+                type="file" 
+                #fileInput 
+                style="display: none;" 
+                (change)="onFileSelected($event)"
+              >
+              <button class="btn-add-attachment" (click)="fileInput.click()" title="Add attachment">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                Add Attachment
+              </button>
+            </div>
+          </div>
           
           <div *ngIf="loadingAttachments" class="loading-attachments">
             Loading attachments...
@@ -245,5 +261,11 @@
       <img [src]="currentViewerImage" alt="Full size image" class="viewer-image">
       <button class="close-viewer" (click)="closeViewer()">×</button>
     </div>
+  </div>
+  
+  <!-- Add upload progress bar -->
+  <div *ngIf="uploadProgress > 0" class="upload-progress-container">
+    <div class="upload-progress-bar" [style.width.%]="uploadProgress"></div>
+    <div class="upload-progress-text">Uploading: {{ uploadProgress }}%</div>
   </div>
 </div>

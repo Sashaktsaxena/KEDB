@@ -60,7 +60,12 @@
           {{ record.status }}
         </span>
       </div>
-      <div class="col-owner">{{ record.owner }}</div>
+      <div class="col-owner">
+        {{ record.owner }}
+        <div *ngIf="record.dueDate" class="owner-due-date" [ngClass]="getDueStatusClass(record.dueDate)">
+          Due: {{ formatDate(record.dueDate) }}
+        </div>
+      </div>
     </div>
   </div>
   
@@ -118,6 +123,7 @@
       </div>
       
       <div class="modal-body" *ngIf="selectedRecord">
+        <!-- Basic record details (existing code) -->
         <div class="record-details-grid">
           <div class="detail-row">
             <div class="detail-label">Title:</div>
@@ -180,7 +186,79 @@
           </div>
         </div>
         
-        <!-- Attachments section -->
+        <!-- Record Ownership Info Section -->
+        <div class="record-ownership-info">
+          <div class="record-owner">
+            <div class="ownership-label">Owner:</div>
+            <div class="ownership-value">{{ selectedRecord?.originalOwner || selectedRecord?.owner }}</div>
+          </div>
+          
+          <div class="record-assignee" *ngIf="selectedRecord?.currentAssignee && selectedRecord?.currentAssignee !== selectedRecord?.owner">
+            <div class="ownership-label">Currently Assigned To:</div>
+            <div class="ownership-value">{{ selectedRecord?.currentAssignee }}</div>
+            <div *ngIf="selectedRecord?.dueDate" class="ownership-due-date" 
+                [ngClass]="getDueStatusClass(selectedRecord?.dueDate)">
+              Due: {{ formatDate(selectedRecord.dueDate) }}
+              <span *ngIf="selectedRecord?.daysRemaining != null">
+                ({{ getDueStatusText(selectedRecord.daysRemaining) }})
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- MOVE THE LIFECYCLE SECTION HERE, INSIDE THE MODAL BODY -->
+        <div class="record-lifecycle-section">
+          <div class="lifecycle-header">
+            <h3>Assignment History</h3>
+            <button class="btn-assign" (click)="showAssignDialog = true">
+              {{ selectedRecord?.currentAssignee ? 'Reassign' : 'Assign' }}
+            </button>
+          </div>
+          
+          <!-- Loading indicator for assignment history -->
+          <div *ngIf="loadingHistory" class="loading-history">
+            <div class="spinner-small"></div>
+            <span>Loading assignment history...</span>
+          </div>
+          
+          <!-- No history message -->
+          <div *ngIf="!loadingHistory && assignmentHistory.length === 0" class="no-history">
+            No assignment history available for this record.
+          </div>
+          
+          <!-- Assignment history timeline -->
+          <div *ngIf="!loadingHistory && assignmentHistory.length > 0" class="history-timeline">
+            <div *ngFor="let item of assignmentHistory; let i = index" class="timeline-item">
+              <div class="timeline-marker" [ngClass]="{'current': i === 0}"></div>
+              <div class="timeline-content">
+                <div class="timeline-date">{{ formatDateTime(item.changeDate) }}</div>
+                <div class="timeline-action">
+                  <strong>{{ item.changedBy }}</strong> assigned this record to <strong>{{ item.newAssignee }}</strong>
+                  <span *ngIf="item.previousAssignee"> from <strong>{{ item.previousAssignee }}</strong></span>
+                </div>
+                <div *ngIf="item.notes" class="timeline-notes">
+                  <em>"{{ item.notes }}"</em>
+                </div>
+                
+                <!-- Show duration if available -->
+                <div *ngIf="item.durationDays !== null" class="timeline-duration">
+                  <span *ngIf="item.previousAssignee">Duration with {{ item.previousAssignee }}: {{ item.durationDays }} day(s)</span>
+                </div>
+                
+                <!-- Show due date if it's the current assignment -->
+                <div *ngIf="i === 0 && selectedRecord?.dueDate" class="timeline-due-date" 
+                    [ngClass]="getDueStatusClass(selectedRecord?.dueDate)">
+                  Due: {{ formatDate(selectedRecord.dueDate) }} 
+                  <span *ngIf="selectedRecord?.daysRemaining != null">
+                    ({{ getDueStatusText(selectedRecord.daysRemaining) }})
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Attachments section (existing code) -->
         <div class="attachments-section">
           <div class="attachments-header">
             <h3>Attachments</h3>
@@ -248,7 +326,12 @@
       </div>
       
       <div class="modal-footer">
-        <button class="btn-restore" (click)="restoreRecord()" *ngIf="selectedRecord?.status === 'Archived'">Restore Record</button>
+        <button class="btn-assign" (click)="showAssignDialog = true">
+          {{ selectedRecord?.owner ? 'Reassign' : 'Assign' }}
+        </button>
+        <button class="btn-restore" (click)="restoreRecord()" *ngIf="selectedRecord?.status === 'Archived'">
+          Restore Record
+        </button>
         <button class="btn-update" (click)="updateStatus()">Update Status</button>
         <button class="btn-delete" (click)="deleteRecordPermanently()">Delete Permanently</button>
       </div>
@@ -267,5 +350,102 @@
   <div *ngIf="uploadProgress > 0" class="upload-progress-container">
     <div class="upload-progress-bar" [style.width.%]="uploadProgress"></div>
     <div class="upload-progress-text">Uploading: {{ uploadProgress }}%</div>
+  </div>
+  
+  <!-- Record Lifecycle Section -->
+  <div class="record-lifecycle-section">
+    <div class="lifecycle-header">
+      <h3>Record Lifecycle</h3>
+      <button class="btn-assign" (click)="showAssignDialog = true">
+        {{ selectedRecord?.owner ? 'Reassign' : 'Assign' }}
+      </button>
+    </div>
+    
+    <!-- Loading indicator for assignment history -->
+    <div *ngIf="loadingHistory" class="loading-history">
+      <div class="spinner-small"></div>
+      <span>Loading assignment history...</span>
+    </div>
+    
+    <!-- No history message -->
+    <div *ngIf="!loadingHistory && assignmentHistory.length === 0" class="no-history">
+      No assignment history available for this record.
+    </div>
+    
+    <!-- Assignment history timeline -->
+<div *ngIf="!loadingHistory && assignmentHistory.length > 0" class="history-timeline">
+  <div *ngFor="let item of assignmentHistory; let i = index" class="timeline-item">
+    <div class="timeline-marker" [ngClass]="{'current': i === 0}"></div>
+    <div class="timeline-content">
+      <div class="timeline-date">{{ formatDateTime(item.changeDate) }}</div>
+      <div class="timeline-action">
+        <strong>{{ item.changedBy }}</strong> assigned this record to <strong>{{ item.newAssignee }}</strong>
+        <span *ngIf="item.previousAssignee"> from <strong>{{ item.previousAssignee }}</strong></span>
+      </div>
+      <div *ngIf="item.notes" class="timeline-notes">
+        <em>"{{ item.notes }}"</em>
+      </div>
+      
+      <!-- Show duration if available -->
+      <div *ngIf="item.durationDays !== null" class="timeline-duration">
+        <span *ngIf="item.previousAssignee">Duration with {{ item.previousAssignee }}: {{ item.durationDays }} day(s)</span>
+      </div>
+      
+          
+          <!-- Show due date if it's the current assignment -->
+<div *ngIf="i === 0 && selectedRecord?.dueDate" class="timeline-due-date" 
+     [ngClass]="getDueStatusClass(selectedRecord?.dueDate)">
+  Due: {{ formatDate(selectedRecord!.dueDate!) }} 
+  <span *ngIf="selectedRecord?.daysRemaining != null">
+    ({{ getDueStatusText(selectedRecord!.daysRemaining!) }})
+  </span>
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Assignment Dialog Modal -->
+  <div class="modal-overlay assignment-modal" *ngIf="showAssignDialog" (click)="showAssignDialog = false">
+    <div class="assignment-modal-content" (click)="$event.stopPropagation()">
+      <div class="assignment-modal-header">
+        <h3>Assign Record</h3>
+        <button class="btn-close" (click)="showAssignDialog = false">×</button>
+      </div>
+      
+      <div class="assignment-modal-body">
+<div *ngIf="selectedRecord?.owner" class="current-owner">
+  <p>Currently assigned to: <strong>{{ selectedRecord?.owner }}</strong></p>
+</div>
+        
+<div class="form-group">
+  <label for="assignTo">Assign To:</label>
+  <select id="assignTo" [(ngModel)]="assignToUser" [disabled]="loadingUsers">
+    <option value="" disabled selected>{{ loadingUsers ? 'Loading users...' : 'Select a user' }}</option>
+    <option *ngFor="let user of users" [value]="user.fullName">
+      {{ user.fullName }} ({{ user.department }})
+    </option>
+  </select>
+</div>
+        
+        <div class="form-group">
+          <label for="dueDate">Due Date (Optional):</label>
+          <input type="date" id="dueDate" [(ngModel)]="assignDueDate" [min]="getMinDueDate()">
+        </div>
+        
+        <div class="form-group">
+          <label for="assignmentNotes">Assignment Notes (Optional):</label>
+          <textarea id="assignmentNotes" [(ngModel)]="assignmentNotes" rows="3" 
+                    placeholder="Add any notes about this assignment..."></textarea>
+        </div>
+      </div>
+      
+      <div class="assignment-modal-footer">
+        <button class="btn-cancel" (click)="showAssignDialog = false">Cancel</button>
+        <button class="btn-assign-submit" (click)="assignRecord()" [disabled]="!assignToUser">
+          {{ assignLoading ? 'Assigning...' : 'Assign' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

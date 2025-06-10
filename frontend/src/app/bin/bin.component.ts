@@ -53,11 +53,20 @@ loadingUsers: boolean = false;
   pageSizeOptions: number[] = [5, 10, 25, 50, 100];
   totalPages: number = 1;
   
+  // Add these properties to your class
+  assignmentHistory: any[] = [];
+  loadingHistory: boolean = false;
+  showAssignDialog: boolean = false;
+  assignToUser: string = '';
+  assignDueDate: string = '';
+  assignmentNotes: string = '';
+  assignLoading: boolean = false;
+  
   constructor(private kebdService: KebdService) { }
 
 ngOnInit(): void {
   this.loadArchivedRecords();
-  this.loadUsers(); // Add this line
+  this.loadUsers();
 }
 
   loadArchivedRecords(): void {
@@ -81,6 +90,7 @@ ngOnInit(): void {
     next: (users) => {
       this.users = users;
       this.loadingUsers = false;
+       console.log('Loaded users:', this.users);
     },
     error: (error) => {
       console.error('Error loading users:', error);
@@ -121,9 +131,13 @@ ngOnInit(): void {
 
   // Open record details
   openRecordDetails(record: KebdRecord): void {
-    this.selectedRecord = { ...record }; // Create a copy to avoid direct mutation
+    this.selectedRecord = record;
     this.showDetailView = true;
-    this.loadAttachments(record.id!);
+    
+    if (record.id) {
+      this.loadAttachments(record.id);
+      this.loadAssignmentHistory(record.id);
+    }
   }
 
   // Load attachments for a record
@@ -143,6 +157,50 @@ ngOnInit(): void {
     });
   }
 
+  // Add method to load assignment history
+  // Update this method to handle the new response format
+loadAssignmentHistory(recordId: number): void {
+  this.loadingHistory = true;
+  this.kebdService.getAssignmentHistory(recordId).subscribe({
+    next: (data) => {
+      this.assignmentHistory = data.history;
+      
+      // Update record with owner and assignee info
+      if (this.selectedRecord) {
+        // If owner data is available from response
+        if (data.owner) {
+          this.selectedRecord.originalOwner = data.owner.name;
+        }
+        
+        // If current assignee data is available
+        if (data.currentAssignee) {
+          this.selectedRecord.currentAssignee = data.currentAssignee.name;
+          this.selectedRecord.dueDate = data.currentAssignee.dueDate || undefined;
+          
+          // Calculate days remaining if due date exists
+          if (data.currentAssignee.dueDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const due = new Date(data.currentAssignee.dueDate);
+            due.setHours(0, 0, 0, 0);
+            
+            const diffTime = due.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            this.selectedRecord.daysRemaining = diffDays;
+          }
+        }
+      }
+      
+      this.loadingHistory = false;
+    },
+    error: (error) => {
+      console.error('Error loading assignment history:', error);
+      this.loadingHistory = false;
+    }
+  });
+}
   // Close detail view
   closeDetailView(): void {
     this.showDetailView = false;
@@ -151,15 +209,64 @@ ngOnInit(): void {
   }
 
   // Format date for display
-  formatDate(dateString: string): string {
+formatDate(dateString: string | undefined): string {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+
+
+  // Format date with time
+  formatDateTime(dateString: string): string {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   }
+
+  // Get minimum due date (today)
+  getMinDueDate(): string {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  }
+
+  // Get due status class
+  getDueStatusClass(dueDate: string | undefined): string {
+    if (!dueDate) return 'no-date';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'overdue';
+    if (diffDays === 0) return 'due-today';
+    if (diffDays <= 2) return 'due-soon';
+    return 'on-track';
+  }
+
+  // Get due status text
+ getDueStatusText(daysRemaining: number | undefined): string {
+  if (daysRemaining === undefined || daysRemaining === null) return '';
+  if (daysRemaining < 0) return `Overdue by ${Math.abs(daysRemaining)} day(s)`;
+  if (daysRemaining === 0) return 'Due today';
+  if (daysRemaining === 1) return 'Due tomorrow';
+  return `${daysRemaining} days remaining`;
+}
+
 
   // Update record status
   updateStatus(): void {
@@ -360,5 +467,64 @@ ngOnInit(): void {
   changePageSize(): void {
     this.currentPage = 1; // Reset to first page when changing page size
     this.applyFilter();
+  }
+
+  // Assign record method
+assignRecord(): void {
+  if (!this.selectedRecord || !this.assignToUser) {
+    console.error('Cannot assign: Missing record or user', {
+      record: this.selectedRecord?.id,
+      user: this.assignToUser
+    });
+    return;
+  }
+  
+  console.log('Assigning record to:', this.assignToUser); // Debug log
+  
+  this.assignLoading = true;
+  
+  this.kebdService.assignRecord(
+    this.selectedRecord.id!, 
+    this.assignToUser, 
+    this.assignDueDate, 
+    this.assignmentNotes
+  ).subscribe({
+    next: () => {
+        // Update the record owner
+        this.selectedRecord!.owner = this.assignToUser;
+        
+        // If we have a due date, update it
+        if (this.assignDueDate) {
+          this.selectedRecord!.dueDate = this.assignDueDate;
+          
+          // Calculate days remaining
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const due = new Date(this.assignDueDate);
+          due.setHours(0, 0, 0, 0);
+          
+          const diffTime = due.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          this.selectedRecord!.daysRemaining = diffDays;
+        }
+        
+        // Reset form and close dialog
+        this.showAssignDialog = false;
+        this.assignLoading = false;
+        this.assignToUser = '';
+        this.assignDueDate = '';
+        this.assignmentNotes = '';
+        
+        // Reload assignment history
+        this.loadAssignmentHistory(this.selectedRecord!.id!);
+      },
+      error: (error) => {
+        console.error('Error assigning record:', error);
+        this.assignLoading = false;
+        this.error = 'Failed to assign record. Please try again.';
+      }
+    });
   }
 }

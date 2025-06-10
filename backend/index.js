@@ -293,21 +293,22 @@ app.get('/api/users',async (req, res) => {
 app.post('/api/kebd', async (req, res) => {
   try {
     const year = new Date().getFullYear();
-    const currentYearShort=year.toString().slice(-2);
-    const nextyearshort=(year+1).toString().slice(-2);
-    const yearPrefix=`${currentYearShort}${nextyearshort}`;
-    const [maxIdResult]=await pool.query('SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
+    const currentYearShort = year.toString().slice(-2);
+    const nextyearshort = (year+1).toString().slice(-2);
+    const yearPrefix = `${currentYearShort}${nextyearshort}`;
+    const [maxIdResult] = await pool.query(
+      'SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
       [`${yearPrefix}%`]
     );
 
-  let nextIdNum=1;
-  if (maxIdResult[0].maxIdNum) {
-    nextIdNum = maxIdResult[0].maxIdNum + 1;
-  }
-  const paddedNum=nextIdNum.toString().padStart(4, '0');
-  const generateErrorId=`${yearPrefix}${paddedNum}`;
+    let nextIdNum = 1;
+    if (maxIdResult[0].maxIdNum) {
+      nextIdNum = maxIdResult[0].maxIdNum + 1;
+    }
+    const paddedNum = nextIdNum.toString().padStart(4, '0');
+    const generateErrorId = `${yearPrefix}${paddedNum}`;
+    
     const {
-    //  errorId, // ID
       title,
       description,
       rootCause,
@@ -325,6 +326,19 @@ app.post('/api/kebd', async (req, res) => {
       attachments
     } = req.body;
 
+    // Get owner_id from users table based on the owner name
+    let ownerId = null;
+    if (owner) {
+      const [ownerResult] = await pool.query(
+        'SELECT id FROM users WHERE full_name = ?',
+        [owner]
+      );
+      
+      if (ownerResult.length > 0) {
+        ownerId = ownerResult[0].id;
+      }
+    }
+
     const query = `
       INSERT INTO knowledge_errors (
         error_id, 
@@ -339,12 +353,13 @@ app.post('/api/kebd', async (req, res) => {
         status, 
         date_identified, 
         linked_incidents, 
-        owner, 
+        owner,
+        owner_id,
         priority,
         environment,
         attachments,
         last_updated
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
 
     const [result] = await pool.execute(query, [
@@ -361,10 +376,30 @@ app.post('/api/kebd', async (req, res) => {
       dateIdentified,
       linkedIncidents || null,
       owner,
+      ownerId,
       priority,
       environment,
       attachments || null
     ]);
+
+    // If this is the first assignment, also add it to record_assignments table
+    if (ownerId) {
+      try {
+        await pool.query(
+          'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, status) VALUES (?, ?, ?, "active")',
+          [result.insertId, ownerId, ownerId] // Assuming self-assignment for creation
+        );
+        
+        // Also add to assignment_history
+        await pool.query(
+          'INSERT INTO assignment_history (record_id, previous_owner_id, new_owner_id, changed_by_user_id) VALUES (?, NULL, ?, ?)',
+          [result.insertId, ownerId, ownerId]
+        );
+      } catch (assignError) {
+        console.error('Error adding initial assignment:', assignError);
+        // Continue anyway since the record was created successfully
+      }
+    }
 
     res.status(201).json({
       message: 'KEBD record created successfully',
@@ -412,18 +447,288 @@ app.get('/api/kebd', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch KEBD records', error: error.message });
   }
 });
-app.get('/api/kebd/archived', async (req, res) => {
-  console.log('Fetching archived records');
+// Update the /api/kebd/archived endpoint in index.js
+app.get('/api/kebd/archived', authenticateToken, async (req, res) => {
   try {
-    console.log('Fetching archived records');
-    // Query database for records with status 'Archived'
+    const userId = req.user.id;
+    
+    // Get records that are either owned by the user or assigned to the user
     const [rows] = await pool.query(
-      'SELECT * FROM knowledge_errors ORDER BY last_updated DESC'
+      `SELECT ke.*, 
+              ra.due_date, 
+              ra.assignment_date,
+              ra.id as assignment_id,
+              ra.assigned_to_user_id as current_assignee_id,
+              u.full_name as current_assignee_name,
+              DATEDIFF(ra.due_date, CURDATE()) as days_remaining
+       FROM knowledge_errors ke
+       LEFT JOIN (
+         SELECT * FROM record_assignments 
+         WHERE status = 'active'
+       ) ra ON ke.id = ra.record_id
+       LEFT JOIN users u ON ra.assigned_to_user_id = u.id
+       WHERE ke.owner_id = ? OR ra.assigned_to_user_id = ?
+       ORDER BY ke.last_updated DESC`,
+      [userId, userId]
     );
     
-    res.status(200).json(rows);
+    // Convert the data for the frontend
+    const records = rows.map(row => ({
+      id: row.id,
+      errorId: row.error_id,
+      title: row.title,
+      description: row.description,
+      rootCause: row.root_cause,
+      impact: row.impact,
+      category: row.category,
+      subcategory: row.subcategory,
+      workaround: row.workaround,
+      resolution: row.resolution,
+      status: row.status,
+      dateIdentified: row.date_identified,
+      lastUpdated: row.last_updated,
+      linkedIncidents: row.linked_incidents,
+      owner: row.owner,
+      ownerId: row.owner_id,
+      // Add these fields to distinguish between owner and current assignee
+      isOwner: row.owner_id === userId,
+      isAssignee: row.current_assignee_id === userId,
+      currentAssignee: row.current_assignee_name,
+      currentAssigneeId: row.current_assignee_id,
+      priority: row.priority,
+      environment: row.environment,
+      dueDate: row.due_date,
+      assignmentDate: row.assignment_date,
+      assignmentId: row.assignment_id,
+      daysRemaining: row.days_remaining
+    }));
+    
+    res.status(200).json(records);
   } catch (error) {
     console.error('Error fetching archived records:', error);
+    res.status(500).json({ message: 'Failed to fetch archived records', error: error.message });
+  }
+});
+
+// Update the /api/kebd/:id/assign endpoint in index.js
+app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedTo, dueDate, notes } = req.body;
+    
+    if (!assignedTo) {
+      return res.status(400).json({ message: 'Assigned user is required' });
+    }
+
+    // Get the current record details
+    const [currentRecord] = await pool.query(
+      'SELECT owner, owner_id FROM knowledge_errors WHERE id = ?',
+      [id]
+    );
+
+    if (currentRecord.length === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+    
+    // Get user ID from the username
+    const [assignedToUser] = await pool.query(
+      'SELECT id, full_name FROM users WHERE full_name = ?',
+      [assignedTo]
+    );
+
+    if (assignedToUser.length === 0) {
+      return res.status(404).json({ message: 'Assigned user not found' });
+    }
+    
+    const assignedToUserId = assignedToUser[0].id;
+    
+    // Begin transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Important change: Don't update the owner
+      // Just use record_assignments to track who it's currently assigned to
+      
+      // Find the currently assigned user, if any
+      const [currentAssignment] = await connection.query(
+        'SELECT assigned_to_user_id FROM record_assignments WHERE record_id = ? AND status = "active"',
+        [id]
+      );
+      
+      const previousAssigneeId = currentAssignment.length > 0 ? currentAssignment[0].assigned_to_user_id : null;
+      
+      // Calculate duration if there was a previous assignee
+      let durationDays = null;
+      if (previousAssigneeId) {
+        const [prevAssignment] = await connection.query(
+          'SELECT assignment_date FROM record_assignments WHERE record_id = ? AND assigned_to_user_id = ? AND status = "active"',
+          [id, previousAssigneeId]
+        );
+        
+        if (prevAssignment.length > 0) {
+          const prevDate = new Date(prevAssignment[0].assignment_date);
+          const now = new Date();
+          const diffTime = Math.abs(now - prevDate);
+          durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+      }
+      
+      // Mark all previous assignments as reassigned
+      await connection.query(
+        'UPDATE record_assignments SET status = "reassigned" WHERE record_id = ? AND status = "active"',
+        [id]
+      );
+      
+      // Add new assignment entry
+      await connection.query(
+        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes) VALUES (?, ?, ?, ?, ?)',
+        [id, assignedToUserId, req.user.id, dueDate || null, notes || null]
+      );
+      
+      // Add entry to assignment_history
+      await connection.query(
+        'INSERT INTO assignment_history (record_id, previous_owner_id, new_owner_id, changed_by_user_id, notes, duration_days) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, previousAssigneeId, assignedToUserId, req.user.id, notes || null, durationDays]
+      );
+      
+      // Update the last_updated timestamp of the record
+      await connection.query(
+        'UPDATE knowledge_errors SET last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+        [id]
+      );
+      
+      await connection.commit();
+      
+      res.status(200).json({ 
+        message: 'Record assigned successfully',
+        assignedTo: assignedTo
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    
+  } catch (error) {
+    console.error('Error assigning record:', error);
+    res.status(500).json({ message: 'Failed to assign record', error: error.message });
+  }
+});
+
+// Get assignment history for a record
+// Update the /api/kebd/:id/history endpoint in index.js
+app.get('/api/kebd/:id/history', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First get the original owner
+    const [owner] = await pool.query(
+      `SELECT owner, owner_id, full_name as owner_name
+       FROM knowledge_errors ke
+       JOIN users u ON ke.owner_id = u.id
+       WHERE ke.id = ?`,
+      [id]
+    );
+    
+    // Then get the assignment history
+    const [rows] = await pool.query(
+      `SELECT ah.*, 
+              pu.full_name as previous_assignee, 
+              nu.full_name as new_assignee, 
+              cu.full_name as changed_by
+       FROM assignment_history ah
+       LEFT JOIN users pu ON ah.previous_owner_id = pu.id
+       JOIN users nu ON ah.new_owner_id = nu.id
+       JOIN users cu ON ah.changed_by_user_id = cu.id
+       WHERE ah.record_id = ?
+       ORDER BY ah.change_date DESC`,
+      [id]
+    );
+    
+    const history = rows.map(row => ({
+      id: row.id,
+      recordId: row.record_id,
+      previousAssignee: row.previous_assignee,
+      newAssignee: row.new_assignee,
+      changedBy: row.changed_by,
+      changeDate: row.change_date,
+      notes: row.notes,
+      durationDays: row.duration_days
+    }));
+    
+    // Get the current assignee
+    const [currentAssignment] = await pool.query(
+      `SELECT ra.*, u.full_name as assignee_name
+       FROM record_assignments ra
+       JOIN users u ON ra.assigned_to_user_id = u.id
+       WHERE ra.record_id = ? AND ra.status = 'active'
+       ORDER BY ra.assignment_date DESC LIMIT 1`,
+      [id]
+    );
+    
+    const currentAssignee = currentAssignment.length > 0 ? {
+      id: currentAssignment[0].assigned_to_user_id,
+      name: currentAssignment[0].assignee_name,
+      assignmentDate: currentAssignment[0].assignment_date,
+      dueDate: currentAssignment[0].due_date
+    } : null;
+    
+    res.status(200).json({
+      owner: owner.length > 0 ? {
+        id: owner[0].owner_id,
+        name: owner[0].owner_name
+      } : null,
+      currentAssignee,
+      history
+    });
+  } catch (error) {
+    console.error('Error fetching assignment history:', error);
+    res.status(500).json({ message: 'Failed to fetch assignment history', error: error.message });
+  }
+});
+app.patch('/api/kebd/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    // Update record status and last_updated timestamp
+    await pool.query(
+      'UPDATE knowledge_errors SET status = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+      [status, id]
+    );
+    
+    res.status(200).json({ message: 'Record status updated successfully' });
+  } catch (error) {
+    console.error('Error updating record status:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update record owner
+app.patch('/api/kebd/:id/owner', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { owner } = req.body;
+    
+    if (!owner) {
+      return res.status(400).json({ message: 'Owner is required' });
+    }
+    
+    // Update record owner and last_updated timestamp
+    await pool.query(
+      'UPDATE knowledge_errors SET owner = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+      [owner, id]
+    );
+    
+    res.status(200).json({ message: 'Record owner updated successfully' });
+  } catch (error) {
+    console.error('Error updating record owner:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
@@ -489,6 +794,19 @@ app.put('/api/kebd/:id', async (req, res) => {
       attachments
     } = req.body;
 
+    // Get owner_id from users table based on the owner name
+    let ownerId = null;
+    if (owner) {
+      const [ownerResult] = await pool.query(
+        'SELECT id FROM users WHERE full_name = ?',
+        [owner]
+      );
+      
+      if (ownerResult.length > 0) {
+        ownerId = ownerResult[0].id;
+      }
+    }
+
     const query = `
       UPDATE knowledge_errors SET
         error_id = ?,
@@ -504,6 +822,7 @@ app.put('/api/kebd/:id', async (req, res) => {
         date_identified = ?,
         linked_incidents = ?,
         owner = ?,
+        owner_id = ?,
         priority = ?,
         environment = ?,
         attachments = ?,
@@ -526,6 +845,7 @@ app.put('/api/kebd/:id', async (req, res) => {
       dateIdentified,
       linkedIncidents || null,
       owner,
+      ownerId,
       priority,
       environment,
       attachments || null,
@@ -679,56 +999,10 @@ app.delete('/api/attachments/:attachmentId', authenticateToken, async (req, res)
   }
 });
 
-// Add these API endpoints
-
-// Get archived records
+// Get archived records for the current user
 
 
-// Update record status
-app.patch('/api/kebd/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({ message: 'Status is required' });
-    }
-    
-    // Update record status and last_updated timestamp
-    await pool.query(
-      'UPDATE knowledge_errors SET status = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-      [status, id]
-    );
-    
-    res.status(200).json({ message: 'Record status updated successfully' });
-  } catch (error) {
-    console.error('Error updating record status:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// Update record owner
-app.patch('/api/kebd/:id/owner', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { owner } = req.body;
-    
-    if (!owner) {
-      return res.status(400).json({ message: 'Owner is required' });
-    }
-    
-    // Update record owner and last_updated timestamp
-    await pool.query(
-      'UPDATE knowledge_errors SET owner = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ?',
-      [owner, id]
-    );
-    
-    res.status(200).json({ message: 'Record owner updated successfully' });
-  } catch (error) {
-    console.error('Error updating record owner:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
+// Assign a record to a user
 
 // Start server
 app.listen(PORT, () => {

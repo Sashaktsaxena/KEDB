@@ -30,9 +30,17 @@ export interface KebdRecord {
   lastUpdated?: string;
   linkedIncidents?: string;
   owner: string;
+  ownerId?: number;
+  originalOwner?: string;
+  currentAssignee?: string;
+  currentAssigneeId?: number;
+  isOwner?: boolean;
+  isAssignee?: boolean;
   priority: string;
   environment: string;
   attachments?: string;
+  dueDate?: string;
+  daysRemaining?: number;
 }
 
 export interface Attachment {
@@ -42,6 +50,31 @@ export interface Attachment {
   file_type: string;
   file_size: number;
   created_at: string;
+}
+
+export interface AssignmentHistory {
+  id: number;
+  recordId: number;
+  previousAssignee?: string;
+  newAssignee: string;
+  changedBy: string;
+  changeDate: string;
+  notes?: string;
+  durationDays?: number;
+}
+
+export interface AssignmentHistoryResponse {
+  owner: {
+    id: number;
+    name: string;
+  } | null;
+  currentAssignee: {
+    id: number;
+    name: string;
+    assignmentDate: string;
+    dueDate: string | null;
+  } | null;
+  history: AssignmentHistory[];
 }
 
 @Injectable({
@@ -147,5 +180,25 @@ export class KebdService {
         department: user.department
       })))
     );
+  }
+
+  // Get assignment history for a record
+  getAssignmentHistory(recordId: number): Observable<AssignmentHistoryResponse> {
+    return this.http.get<AssignmentHistoryResponse>(`${API_URL}/kebd/${recordId}/history`);
+  }
+
+  // Assign a record to a user
+  assignRecord(recordId: number, assignedTo: string, dueDate?: string, notes?: string): Observable<any> {
+      console.log('Assigning record in service:', {
+    recordId,
+    assignedTo,
+    dueDate,
+    notes
+  });
+    return this.http.post(`${API_URL}/kebd/${recordId}/assign`, {
+      assignedTo,
+      dueDate,
+      notes
+    });
   }
 }

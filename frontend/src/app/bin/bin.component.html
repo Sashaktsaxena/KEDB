@@ -360,23 +360,13 @@
   
   <!-- Record Lifecycle Section -->
   <div class="record-lifecycle-section">
-    <div class="lifecycle-header">
-      <h3>Record Lifecycle</h3>
-      <button class="btn-assign" (click)="showAssignDialog = true">
-        {{ selectedRecord?.owner ? 'Reassign' : 'Assign' }}
-      </button>
-    </div>
+
     
     <!-- Loading indicator for assignment history -->
-    <div *ngIf="loadingHistory" class="loading-history">
-      <div class="spinner-small"></div>
-      <span>Loading assignment history...</span>
-    </div>
+  
     
     <!-- No history message -->
-    <div *ngIf="!loadingHistory && assignmentHistory.length === 0" class="no-history">
-      No assignment history available for this record.
-    </div>
+    
     
     <!-- Assignment history timeline -->
 <div *ngIf="!loadingHistory && assignmentHistory.length > 0" class="history-timeline">

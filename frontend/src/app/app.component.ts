@@ -197,85 +197,112 @@ export class AppComponent implements OnInit {
     return (this.currentStep / (this.totalSteps - 1)) * 100;
   }
 
-  onSubmit(): void {
-    if (this.kebdForm.invalid) {
-      // Mark all fields as touched to show validation errors
-      Object.keys(this.kebdForm.controls).forEach(key => {
-        const control = this.kebdForm.get(key);
-        control?.markAsTouched();
-      });
-      return;
-    }
+// Replace the current onSubmit method with this fixed version
+onSubmit(): void {
+  if (this.kebdForm.invalid) {
+    // Mark all fields as touched to show validation errors
+    Object.keys(this.kebdForm.controls).forEach(key => {
+      const control = this.kebdForm.get(key);
+      control?.markAsTouched();
+    });
+    return;
+  }
 
-    const formData = {
-      ...this.kebdForm.value,
-      lastUpdated: new Date().toISOString()
-    };
+  const formData = {
+    ...this.kebdForm.value,
+    lastUpdated: new Date().toISOString()
+  };
 
-    this.isUploading = true;
-    this.uploadProgress = 0;
+  this.isUploading = true;
+  this.uploadProgress = 0;
 
-    // First submit the form data
-    this.kebdService.createKebdRecord(formData)
-      .pipe(
-        finalize(() => {
-          if (this.selectedFiles.length === 0) {
-            this.isUploading = false;
-          }
-        })
-      )
-      .subscribe({
-        next: (response) => {
-          // Get the created record ID
-          const recordId = response.id;
-          
-          if (this.selectedFiles.length === 0) {
-            // No files to upload
-            this.success = true;
-            this.error = '';
-            
-            // Show success message briefly before redirecting
-            setTimeout(() => {
-              this.router.navigate(['/records']);
-            }, 2000);
-            return;
-          }
-          
-          // Upload each file individually with its comment
-          const uploadObservables = this.selectedFiles.map((file, index) => 
-            this.kebdService.uploadAttachmentWithComment(recordId, file, this.fileComments[index])
-          );
-          
-          // Execute all uploads in parallel
-          forkJoin(uploadObservables)
-            .pipe(
-              finalize(() => {
+  // First submit the form data
+  this.kebdService.createKebdRecord(formData).subscribe({
+    next: (response) => {
+      // Get the created record ID
+      const recordId = response.id;
+      
+      if (this.selectedFiles.length === 0) {
+        // No files to upload
+        this.success = true;
+        this.error = '';
+        
+        // Show success message briefly before redirecting
+        setTimeout(() => {
+          this.router.navigate(['/records']);
+        }, 2000);
+        return;
+      }
+      
+      // Track upload progress
+      let completedUploads = 0;
+      const totalUploads = this.selectedFiles.length;
+      
+      // Process each file sequentially to ensure comments are preserved
+      for (let i = 0; i < this.selectedFiles.length; i++) {
+        const file = this.selectedFiles[i];
+        // Ensure we have a string (not undefined)
+        const comment = this.fileComments[i] || '';
+        
+        // Create FormData manually to debug
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('comment', comment);
+        
+        console.log(`Creating FormData for file ${i+1}/${totalUploads}: ${file.name}`);
+        console.log(`Comment being added to FormData: "${comment}"`);
+        
+        // Use HttpClient directly for more control
+        this.kebdService.http.post(
+          `http://localhost:3000/api/kebd/${recordId}/attachments`, 
+          formData,
+          { reportProgress: true, observe: 'events' }
+        ).subscribe({
+          next: (event: any) => {
+            if (event.type === HttpEventType.UploadProgress && event.total) {
+              const fileProgress = Math.round(100 * event.loaded / event.total);
+              this.uploadProgress = Math.round((completedUploads * 100 + fileProgress) / totalUploads);
+            } else if (event.type === HttpEventType.Response) {
+              completedUploads++;
+              this.uploadProgress = Math.round((completedUploads / totalUploads) * 100);
+              
+              console.log(`File ${i+1} uploaded successfully with comment: "${comment}"`);
+              console.log('Server response:', event.body);
+              
+              if (completedUploads === totalUploads) {
                 this.isUploading = false;
-              })
-            )
-            .subscribe({
-              next: (responses) => {
                 this.success = true;
-                this.error = '';
                 
-                // Show success message briefly before redirecting
                 setTimeout(() => {
                   this.router.navigate(['/records']);
                 }, 2000);
-              },
-              error: (error) => {
-                this.error = 'Error uploading attachments. Record was saved but some files could not be uploaded.';
-                console.error('Error uploading attachments:', error);
               }
-            });
-        },
-        error: (error) => {
-          this.isUploading = false;
-          this.error = 'Error submitting form. Please try again.';
-          console.error('Error submitting form:', error);
-        }
-      });
-  }
+            }
+          },
+          error: (error: any) => {
+            console.error(`Error uploading file ${i+1}:`, error);
+            completedUploads++;
+            
+            if (completedUploads === totalUploads) {
+              this.isUploading = false;
+              this.success = true;
+              this.error = 'Some files could not be uploaded';
+              
+              setTimeout(() => {
+                this.router.navigate(['/records']);
+              }, 2000);
+            }
+          }
+        });
+      }
+    },
+    error: (error) => {
+      this.isUploading = false;
+      this.error = 'Error submitting form. Please try again.';
+      console.error('Error submitting form:', error);
+    }
+  });
+}
 
   resetForm() {
     this.kebdForm.reset();

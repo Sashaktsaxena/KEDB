@@ -83,7 +83,7 @@ export interface AssignmentHistoryResponse {
 })
 export class KebdService {
   constructor(
-    private http: HttpClient,
+    public http: HttpClient,  // Changed from private to public
     private authService: AuthService
   ) {}
 

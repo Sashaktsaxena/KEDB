@@ -1,1 +1,19 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Add this to your global styles.css file */
+body, html {
+    
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+app-root {
+  display: block;
+  width: 100%;
+}

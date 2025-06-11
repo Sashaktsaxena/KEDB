@@ -5,11 +5,18 @@ import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { finalize, forkJoin } from 'rxjs';
 import { KebdService } from './kebd.service';
+import { FormsModule } from '@angular/forms'; // Add this import
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterOutlet, RouterModule],
+  imports: [
+    CommonModule, 
+    ReactiveFormsModule, 
+    RouterOutlet, 
+    RouterModule,
+    FormsModule  // Add this import to the component
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -68,7 +75,8 @@ export class AppComponent implements OnInit {
         label: 'Owner', 
         type: 'select', 
         options: [], 
-        validators: [Validators.required] 
+        validators: [Validators.required] ,
+  
       },
       { name: 'linkedIncidents', label: 'Linked Incidents', type: 'text', validators: [] },
       
@@ -80,6 +88,7 @@ export class AppComponent implements OnInit {
   isDraggingOver: boolean = false;
   uploadProgress: number = 0;
   isUploading: boolean = false;
+  fileComments: string[] = [];
 
   @ViewChild('textArea') textArea!: ElementRef;
 
@@ -94,7 +103,11 @@ export class AppComponent implements OnInit {
     console.log('component initialized');
     const formGroupConfig: Record<string, any> = {};
     this.formFields.flat().forEach(field => {
+      if (field.name === 'status') {
+      formGroupConfig[field.name] = ['Open', field.validators]; // Set 'Open' as default
+    } else {
       formGroupConfig[field.name] = ['', field.validators];
+    }
     });
     this.kebdForm = this.fb.group(formGroupConfig);
     
@@ -228,9 +241,9 @@ export class AppComponent implements OnInit {
             return;
           }
           
-          // Upload each file individually
-          const uploadObservables = this.selectedFiles.map(file => 
-            this.kebdService.uploadAttachment(recordId, file)
+          // Upload each file individually with its comment
+          const uploadObservables = this.selectedFiles.map((file, index) => 
+            this.kebdService.uploadAttachmentWithComment(recordId, file, this.fileComments[index])
           );
           
           // Execute all uploads in parallel
@@ -323,10 +336,16 @@ export class AppComponent implements OnInit {
     }
     
     this.selectedFiles = [...this.selectedFiles, ...newFiles];
+    
+    // Add empty comments for each new file
+    for (let i = 0; i < newFiles.length; i++) {
+      this.fileComments.push('');
+    }
   }
 
   removeFile(index: number): void {
     this.selectedFiles = this.selectedFiles.filter((_, i) => i !== index);
+    this.fileComments = this.fileComments.filter((_, i) => i !== index);
   }
 
   formatFileSize(bytes: number): string {

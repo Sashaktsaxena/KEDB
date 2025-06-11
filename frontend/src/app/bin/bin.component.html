@@ -40,7 +40,7 @@
   <!-- Records grid -->
   <div *ngIf="!loading && !error && filteredRecords.length > 0" class="records-grid">
     <div class="grid-header">
-      <div class="col-id">ID</div>
+      <div class="col-errorId">ID</div>
       <div class="col-title">Title</div>
       <div class="col-category">Category</div>
       <div class="col-subcategory">Subcategory</div>
@@ -49,8 +49,14 @@
     </div>
     
     <div *ngFor="let record of filteredRecords" class="grid-row">
-      <div class="col-id" (click)="openRecordDetails(record)">
-        <a href="javascript:void(0)" class="record-id-link">{{ record.errorId }}</a>
+      <div class="col-errorId" (click)="openRecordDetails(record)">
+        <a href="javascript:void(0)" class="record-id-link">
+          <!-- Replace the incorrect condition -->
+          <span *ngIf="record.errorId">{{ record.errorId }}</span>
+          <span *ngIf="!record.errorId">ID-{{ record.errorId || 'Unknown' }}</span>
+          <!-- Add eye icon for better UX -->
+ 
+        </a>
       </div>
       <div class="col-title" [title]="record.title">{{ record.title }}</div>
       <div class="col-category">{{ record.category }}</div>
@@ -263,13 +269,7 @@
           <div class="attachments-header">
             <h3>Attachments</h3>
             <div class="attachment-actions-header">
-              <input 
-                type="file" 
-                #fileInput 
-                style="display: none;" 
-                (change)="onFileSelected($event)"
-              >
-              <button class="btn-add-attachment" (click)="fileInput.click()" title="Add attachment">
+              <button class="btn-add-attachment" (click)="showUploadDialog()" title="Add attachment">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 5v14M5 12h14"></path>
                 </svg>
@@ -301,6 +301,12 @@
               <div class="attachment-details">
                 <div class="attachment-name" [title]="attachment.file_name">{{ attachment.file_name }}</div>
                 <div class="attachment-size">{{ formatFileSize(attachment.file_size) }}</div>
+                
+                <!-- Enhance the comment display -->
+                <div *ngIf="attachment.comment" class="attachment-comment-container">
+                  <div class="comment-label">Description:</div>
+                  <div class="comment-text">{{ attachment.comment }}</div>
+                </div>
               </div>
               
               <div class="attachment-actions">
@@ -444,6 +450,65 @@
         <button class="btn-cancel" (click)="showAssignDialog = false">Cancel</button>
         <button class="btn-assign-submit" (click)="assignRecord()" [disabled]="!assignToUser">
           {{ assignLoading ? 'Assigning...' : 'Assign' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Add Upload Dialog Modal -->
+  <div class="modal-overlay upload-modal" *ngIf="showUploadModal" (click)="showUploadModal = false">
+    <div class="upload-modal-content" (click)="$event.stopPropagation()">
+      <div class="upload-modal-header">
+        <h3>Upload Attachment</h3>
+        <button class="btn-close" (click)="showUploadModal = false">×</button>
+      </div>
+      
+      <div class="upload-modal-body">
+        <div class="file-drop-area" 
+             [class.active]="isDraggingOver"
+             (dragover)="onDragOver($event)" 
+             (dragleave)="onDragLeave($event)" 
+             (drop)="onDrop($event)">
+          <div class="drop-message">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Drag & drop files here or</span>
+            <button type="button" class="btn-browse" (click)="fileInput.click()">Browse Files</button>
+            <input #fileInput type="file" (change)="onFileSelected($event)" hidden accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+          </div>
+        </div>
+        
+        <div *ngIf="selectedFile" class="selected-file-info">
+          <div class="file-info">
+            <div class="file-icon" [ngClass]="getSelectedFileIconClass()"></div>
+            <div class="file-details">
+              <div class="file-name">{{ selectedFile.name }}</div>
+              <div class="file-size">{{ formatFileSize(selectedFile.size) }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group" *ngIf="selectedFile">
+          <label for="attachmentComment">Attachment Description:</label>
+          <textarea 
+            id="attachmentComment" 
+            [(ngModel)]="attachmentComment"
+            rows="3" 
+            placeholder="Add information about this document (e.g., version, purpose, related sections)"
+          ></textarea>
+        </div>
+      </div>
+      
+      <div class="upload-modal-footer">
+        <button class="btn-cancel" (click)="showUploadModal = false">Cancel</button>
+        <button 
+          class="btn-upload" 
+          [disabled]="!selectedFile" 
+          (click)="uploadAttachmentWithComment()">
+          {{ isUploading ? 'Uploading...' : 'Upload' }}
         </button>
       </div>
     </div>

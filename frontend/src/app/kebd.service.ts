@@ -1,6 +1,6 @@
 // kebd.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AuthService } from './auth/auth.service';
@@ -49,6 +49,7 @@ export interface Attachment {
   file_name: string;
   file_type: string;
   file_size: number;
+  comment?: string; // Make it optional since older attachments might not have it
   created_at: string;
 }
 
@@ -115,6 +116,17 @@ export class KebdService {
     const formData = new FormData();
     formData.append('file', file);
     
+    return this.http.post(`${API_URL}/kebd/${recordId}/attachments`, formData, {
+      reportProgress: true,
+      observe: 'events'
+    });
+  }
+
+  uploadAttachmentWithComment(recordId: number, file: File, comment: string): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('comment', comment || ''); // Send empty string if no comment
+    console.log(`Uploading file ${file.name} with comment: "${comment}"`);
     return this.http.post(`${API_URL}/kebd/${recordId}/attachments`, formData, {
       reportProgress: true,
       observe: 'events'

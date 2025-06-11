@@ -62,6 +62,13 @@ loadingUsers: boolean = false;
   assignmentNotes: string = '';
   assignLoading: boolean = false;
   
+  // Add these properties to the BinComponent class
+  showUploadModal: boolean = false;
+  selectedFile: File | null = null;
+  attachmentComment: string = '';
+  isUploading: boolean = false;
+  isDraggingOver: boolean = false;
+  
   constructor(private kebdService: KebdService) { }
 
 ngOnInit(): void {
@@ -76,6 +83,11 @@ ngOnInit(): void {
         this.archivedRecords = records;
         this.filteredRecords = records;
         this.loading = false;
+        console.log('Loaded records:', records);
+      if (records.length > 0) {
+        console.log('First record:', records[0]);
+        console.log('First record error ID:', records[0].errorId);
+      }
       },
       error: (error) => {
         this.error = 'Failed to load archived records. Please try again.';
@@ -527,4 +539,84 @@ assignRecord(): void {
       }
     });
   }
+
+  // Add these methods to the BinComponent class
+showUploadDialog(): void {
+  this.showUploadModal = true;
+  this.selectedFile = null;
+  this.attachmentComment = '';
+}
+
+onDragOver(event: DragEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+  this.isDraggingOver = true;
+}
+
+onDragLeave(event: DragEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+  this.isDraggingOver = false;
+}
+
+onDrop(event: DragEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+  this.isDraggingOver = false;
+  
+  if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+    this.selectedFile = event.dataTransfer.files[0];
+  }
+}
+
+getSelectedFileIconClass(): string {
+  if (!this.selectedFile) return '';
+  
+  const type = this.selectedFile.type;
+  
+  if (type.startsWith('image/')) return 'image';
+  if (type.includes('pdf')) return 'pdf';
+  if (type.includes('word') || type.includes('doc')) return 'doc';
+  if (type.includes('excel') || type.includes('sheet')) return 'spreadsheet';
+  if (type.includes('text/')) return 'text';
+  return 'other';
+}
+
+uploadAttachmentWithComment(): void {
+  if (!this.selectedRecord || !this.selectedRecord.id || !this.selectedFile) {
+    this.error = 'Cannot upload attachment: No record or file selected';
+    return;
+  }
+  
+  this.isUploading = true;
+  this.uploadProgress = 0;
+  
+  this.kebdService.uploadAttachmentWithComment(
+    this.selectedRecord.id, 
+    this.selectedFile, 
+    this.attachmentComment
+  ).subscribe({
+    next: (event) => {
+      if (event.type === HttpEventType.UploadProgress && event.total) {
+        this.uploadProgress = Math.round(100 * event.loaded / event.total);
+      } else if (event instanceof HttpResponse) {
+        // Upload complete, reset and refresh
+        setTimeout(() => {
+          this.uploadProgress = 0;
+          this.isUploading = false;
+          this.selectedFile = null;
+          this.attachmentComment = '';
+          this.showUploadModal = false;
+          this.loadAttachments(this.selectedRecord!.id!);
+        }, 500);
+      }
+    },
+    error: (error) => {
+      this.uploadProgress = 0;
+      this.isUploading = false;
+      console.error('Error uploading attachment:', error);
+      this.error = 'Failed to upload attachment. Please try again.';
+    }
+  });
+}
 }

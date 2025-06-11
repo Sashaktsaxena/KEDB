@@ -405,12 +405,20 @@ button {
   background-color: white;
   margin-bottom: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9f9f9;
+  position: relative;
 }
 
 .file-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 15px;
 }
 
 .file-icon {
@@ -484,35 +492,49 @@ button {
   font-size: 1rem;
   font-weight: bold;
   transition: all 0.2s ease;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #777;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
 .btn-remove-file:hover {
-  background-color: #e0e0e0;
-  color: #333;
+  background-color: #f1f1f1;
+  color: #d32f2f;
 }
 
-.upload-progress {
-  margin-top: 1rem;
+/* New styles for file comments */
+.file-comment {
+  width: 100%;
+  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
-.progress-bar {
-  height: 4px;
-  background-color: #e0e0e0;
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
+.file-comment-input {
+  width: 100%;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+  resize: vertical;
+  font-family: inherit;
 }
 
-.progress-bar-fill {
-  height: 100%;
-  background-color: #4caf50;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.8rem;
-  color: #666;
-  text-align: right;
+.file-comment-input:focus {
+  border-color: #4caf50;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 /* Animation for messages */

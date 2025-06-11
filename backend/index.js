@@ -475,7 +475,7 @@ app.get('/api/kebd/archived', authenticateToken, async (req, res) => {
     // Convert the data for the frontend
     const records = rows.map(row => ({
       id: row.id,
-      errorId: row.error_id,
+      error_id: row.error_id,
       title: row.title,
       description: row.description,
       rootCause: row.root_cause,
@@ -502,7 +502,7 @@ app.get('/api/kebd/archived', authenticateToken, async (req, res) => {
       assignmentId: row.assignment_id,
       daysRemaining: row.days_remaining
     }));
-    
+    console.log(records)
     res.status(200).json(records);
   } catch (error) {
     console.error('Error fetching archived records:', error);
@@ -880,9 +880,15 @@ app.delete('/api/kebd/:id', async (req, res) => {
 });
 
 // API endpoint to upload files for a record
+// API endpoint to upload files for a record
 app.post('/api/kebd/:id/attachments', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
+    const { comment } = req.body; // Get the comment from request body
+    console.log('Received file upload request:');
+    console.log('- Record ID:', id);
+    console.log('- File name:', req.file?.originalname);
+    console.log('- Comment:', comment);
     
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -903,14 +909,15 @@ app.post('/api/kebd/:id/attachments', authenticateToken, upload.single('file'), 
       uploadedAt: new Date().toISOString()
     };
     
-    // Insert file into attachments table
+    // Insert file into attachments table - now including comment
     const [result] = await pool.execute(
-      'INSERT INTO attachments (record_id, file_name, file_type, file_size, file_data) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO attachments (record_id, file_name, file_type, file_size, comment, file_data) VALUES (?, ?, ?, ?, ?, ?)',
       [
         id,
         fileMetadata.originalName,
         fileMetadata.mimetype,
         fileMetadata.size,
+        comment || null, // Store comment, or null if not provided
         req.file.buffer // Store the actual file data as BLOB
       ]
     );
@@ -921,7 +928,8 @@ app.post('/api/kebd/:id/attachments', authenticateToken, upload.single('file'), 
       attachmentId: result.insertId,
       metadata: {
         ...fileMetadata,
-        id: result.insertId
+        id: result.insertId,
+        comment: comment || null
       }
     });
   } catch (error) {
@@ -929,18 +937,18 @@ app.post('/api/kebd/:id/attachments', authenticateToken, upload.single('file'), 
     res.status(500).json({ message: 'Failed to upload file', error: error.message });
   }
 });
-
+// API endpoint to get all attachments for a record
 // API endpoint to get all attachments for a record
 app.get('/api/kebd/:id/attachments', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get attachments metadata (without the actual blob data)
+    // Get attachments metadata (without the actual blob data) - now including comment
     const [attachments] = await pool.query(
-      'SELECT id, record_id, file_name, file_type, file_size, created_at FROM attachments WHERE record_id = ?',
+      'SELECT id, record_id, file_name, file_type, file_size, comment, created_at FROM attachments WHERE record_id = ?',
       [id]
     );
-    
+    console.log(attachments)
     res.status(200).json(attachments);
   } catch (error) {
     console.error('Error fetching attachments:', error);

@@ -121,6 +121,15 @@
                   <div class="file-size">{{ formatFileSize(file.size) }}</div>
                 </div>
               </div>
+              <!-- Add comment textarea for each file -->
+              <div class="file-comment">
+                <textarea 
+                  placeholder="Add information about this document..." 
+                  [(ngModel)]="fileComments[i]"
+                  rows="2"
+                  class="file-comment-input">
+                </textarea>
+              </div>
               <button type="button" class="btn-remove-file" (click)="removeFile(i)">×</button>
             </li>
           </ul>

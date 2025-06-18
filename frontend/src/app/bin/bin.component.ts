@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { KebdService, KebdRecord, Attachment } from '../kebd.service';
+import { response } from 'express';
 
 @Component({
   selector: 'app-bin',
@@ -480,7 +481,24 @@ formatDate(dateString: string | undefined): string {
     this.currentPage = 1; // Reset to first page when changing page size
     this.applyFilter();
   }
+notification: { message: string, type: 'success' | 'warning' | 'error', visible: boolean } = {
+  message: '',
+  type: 'success',
+  visible: false
+};
 
+showNotification(message: string, type: 'success' | 'warning' | 'error' = 'success'): void {
+  this.notification = {
+    message,
+    type,
+    visible: true
+  };
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    this.notification.visible = false;
+  }, 5000);
+}
   // Assign record method
 assignRecord(): void {
   if (!this.selectedRecord || !this.assignToUser) {

@@ -8,7 +8,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
-
+const nodemailer = require('nodemailer');
 // Load environment variables
 dotenv.config();
 
@@ -522,17 +522,19 @@ app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
 
     // Get the current record details
     const [currentRecord] = await pool.query(
-      'SELECT owner, owner_id FROM knowledge_errors WHERE id = ?',
+      'SELECT owner, owner_id,error_id , title FROM knowledge_errors WHERE id = ?',
       [id]
     );
 
     if (currentRecord.length === 0) {
       return res.status(404).json({ message: 'Record not found' });
     }
-    
+    const recordId=currentRecord[0].error_id;
+    const recordTitle=currentRecord[0].title;
+    console.log ("here -----> ",recordId,recordTitle)
     // Get user ID from the username
     const [assignedToUser] = await pool.query(
-      'SELECT id, full_name FROM users WHERE full_name = ?',
+      'SELECT id, full_name,email FROM users WHERE full_name = ?',
       [assignedTo]
     );
 
@@ -541,7 +543,15 @@ app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
     }
     
     const assignedToUserId = assignedToUser[0].id;
+    const assigneeEmail= assignedToUser[0].email;
+    console.log (assigneeEmail)
+    const assigneeName = assignedToUser[0].full_name;
+    const [assignerUser] = await pool.query(
+      'SELECT full_name FROM users WHERE id = ?',
+      [req.user.id]
+    );
     
+    const assignerName = assignerUser.length > 0 ? assignerUser[0].full_name : 'System Administrator';
     // Begin transaction
     const connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -599,10 +609,22 @@ app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
       );
       
       await connection.commit();
-      
+      letemailSent =false;
+      if (assigneeEmail) {
+        emailSent = await sendAssignmentNotification(
+          recordId,
+          recordTitle,
+          assigneeEmail,
+          assigneeName,
+          assignerName,
+          notes,
+          dueDate
+        );
+      }
       res.status(200).json({ 
         message: 'Record assigned successfully',
-        assignedTo: assignedTo
+        assignedTo: assignedTo,
+        emailSent :emailSent
       });
     } catch (error) {
       await connection.rollback();
@@ -1006,13 +1028,93 @@ app.delete('/api/attachments/:attachmentId', authenticateToken, async (req, res)
     res.status(500).json({ message: 'Failed to delete attachment', error: error.message });
   }
 });
+    const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: process.env.EMAIL_PORT || 587,
+    secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    }
+    });
 
-// Get archived records for the current user
+    async function sendAssignmentNotification(recordId,recordTitle, assigneeEmail ,assigneeName, assignerName,assignerName,notes , dueDate) {
+    try {
+    // Format the due date for display if it exists
+    const formattedDueDate = dueDate 
+      ? new Date(dueDate).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      : 'No due date specified';
+    
+    // Create the email content
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://www.tatapower.com/images/logo.png" alt="Tata Power Logo" style="max-height: 60px;">
+        </div>
+        
+        <div style="background-color: #5fa0dB; color: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <h2 style="margin: 0; font-size: 18px;">KEDB Record Assignment Notification</h2>
+        </div>
+        
+        <p>Hello ${assigneeName},</p>
+        
+        <p>A Knowledge Error Database record has been assigned to you.</p>
+        
+        <div style="background-color: #f5f5f5; border-left: 4px solid #5fa0dB; padding: 15px; margin: 20px 0;">
+          <p style="margin-top: 0;"><strong>Record ID:</strong> ${recordId}</p>
+          <p><strong>Title:</strong> ${recordTitle}</p>
+          <p><strong>Assigned by:</strong> ${assignerName}</p>
+          <p><strong>Due Date:</strong> ${formattedDueDate}</p>
+          
+          ${notes ? `
+          <div style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 15px;">
+            <p style="margin-top: 0;"><strong>Assignment Notes:</strong></p>
+            <p style="margin-bottom: 0;">${notes}</p>
+          </div>
+          ` : ''}
+        </div>
+        
+        <p>Please log in to the KEDB system to view and manage this record.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:4200'}/records/${recordId}" 
+             style="background-color: #5fa0dB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
+            View Record
+          </a>
+        </div>
+        
+        <p style="color: #777; font-size: 12px; margin-top: 30px; text-align: center;">
+          This is an automated message from the Tata Power KEDB System. Please do not reply to this email.
+        </p>
+        
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #777; font-size: 12px;">
+          © ${new Date().getFullYear()} Tata Power Ltd. All rights reserved.
+        </div>
+      </div>
+    `;
+    
+    // Send the email
+    const info = await transporter.sendMail({
+      from: `"KEDB System" <${process.env.EMAIL_USER || 'kedb@tatapower.com'}>`,
+      to: assigneeEmail,
+      subject: `KEDB Record Assignment: ${recordTitle}`,
+      html: emailHtml
+    });
+    
+    console.log('Email sent:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return false;
+  }
+    }
+ 
 
-
-// Assign a record to a user
-
-// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

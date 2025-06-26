@@ -292,10 +292,30 @@ app.get('/api/users',async (req, res) => {
 // Create KEBD record
 app.post('/api/kebd', async (req, res) => {
   try {
-    const year = new Date().getFullYear();
-    const currentYearShort = year.toString().slice(-2);
-    const nextyearshort = (year+1).toString().slice(-2);
-    const yearPrefix = `${currentYearShort}${nextyearshort}`;
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-based (0 = January, 3 = April)
+    const currentYear = currentDate.getFullYear();
+    
+    // Determine fiscal year - if we're in April or later, use current year and next year
+    // Otherwise use previous year and current year
+    let startYear, endYear;
+    
+    if (currentMonth >= 3) { // April (month 3) or later
+      startYear = currentYear;
+      endYear = currentYear + 1;
+    } else {
+      startYear = currentYear - 1;
+      endYear = currentYear;
+    }
+    
+    // Convert to last two digits format
+    const startYearShort = startYear.toString().slice(-2);
+    const endYearShort = endYear.toString().slice(-2);
+    
+    // Create the year prefix (e.g., "2324" for Apr 2023-Mar 2024)
+    const yearPrefix = `${startYearShort}${endYearShort}`;
+    
+    // Get the highest ID number for this fiscal year pattern
     const [maxIdResult] = await pool.query(
       'SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
       [`${yearPrefix}%`]
@@ -305,6 +325,7 @@ app.post('/api/kebd', async (req, res) => {
     if (maxIdResult[0].maxIdNum) {
       nextIdNum = maxIdResult[0].maxIdNum + 1;
     }
+    
     const paddedNum = nextIdNum.toString().padStart(4, '0');
     const generateErrorId = `${yearPrefix}${paddedNum}`;
     
@@ -445,6 +466,140 @@ app.get('/api/kebd', async (req, res) => {
   } catch (error) {
     console.error('Error fetching KEBD records:', error);
     res.status(500).json({ message: 'Failed to fetch KEBD records', error: error.message });
+  }
+});
+// Add this endpoint to index.js
+app.post('/api/kebd/:id/revert', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    
+    // Get the current record details
+    const [currentRecord] = await pool.query(
+      'SELECT error_id, title FROM knowledge_errors WHERE id = ?',
+      [id]
+    );
+
+    if (currentRecord.length === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+    
+    const recordId = currentRecord[0].error_id;
+    const recordTitle = currentRecord[0].title;
+    
+    // Get the current assignment
+    const [currentAssignment] = await pool.query(
+      'SELECT assigned_to_user_id FROM record_assignments WHERE record_id = ? AND status = "active"',
+      [id]
+    );
+    
+    if (currentAssignment.length === 0) {
+      return res.status(404).json({ message: 'No active assignment found for this record' });
+    }
+    
+    const currentAssigneeId = currentAssignment[0].assigned_to_user_id;
+    
+    // Get the previous assignment (most recent "reassigned" status)
+    const [previousAssignment] = await pool.query(
+      `SELECT ra.assigned_to_user_id, ra.due_date, u.full_name, u.email
+       FROM record_assignments ra 
+       JOIN users u ON ra.assigned_to_user_id = u.id
+       WHERE ra.record_id = ? AND ra.status = "reassigned" AND ra.assigned_to_user_id != ?
+       ORDER BY ra.assignment_date DESC LIMIT 1`,
+      [id, currentAssigneeId]
+    );
+    
+    if (previousAssignment.length === 0) {
+      return res.status(404).json({ message: 'No previous assignment found for this record' });
+    }
+    
+    const previousAssigneeId = previousAssignment[0].assigned_to_user_id;
+    const previousAssigneeName = previousAssignment[0].full_name;
+    const previousAssigneeEmail = previousAssignment[0].email;
+    const previousDueDate = previousAssignment[0].due_date;
+    
+    // Get the name of the user who's reverting the assignment
+    const [reverterUser] = await pool.query(
+      'SELECT full_name FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    
+    const reverterName = reverterUser.length > 0 ? reverterUser[0].full_name : 'System Administrator';
+    
+    // Begin transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Mark the current assignment as reverted
+      await connection.query(
+        'UPDATE record_assignments SET status = "reverted" WHERE record_id = ? AND status = "active"',
+        [id]
+      );
+      
+      // Calculate duration of current assignment
+      let durationDays = null;
+      const [currentAssignmentDetails] = await connection.query(
+        'SELECT assignment_date FROM record_assignments WHERE record_id = ? AND assigned_to_user_id = ? AND status = "reverted"',
+        [id, currentAssigneeId]
+      );
+      
+      if (currentAssignmentDetails.length > 0) {
+        const prevDate = new Date(currentAssignmentDetails[0].assignment_date);
+        const now = new Date();
+        const diffTime = Math.abs(now - prevDate);
+        durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      // Add new assignment entry for the previous assignee
+      await connection.query(
+        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes) VALUES (?, ?, ?, ?, ?)',
+        [id, previousAssigneeId, req.user.id, previousDueDate || null, notes || null]
+      );
+      
+      // Add entry to assignment_history
+      await connection.query(
+        'INSERT INTO assignment_history (record_id, previous_owner_id, new_owner_id, changed_by_user_id, notes, duration_days) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, currentAssigneeId, previousAssigneeId, req.user.id, `Reverted assignment: ${notes || 'No reason provided'}`, durationDays]
+      );
+      
+      // Update the last_updated timestamp of the record
+      await connection.query(
+        'UPDATE knowledge_errors SET last_updated = CURRENT_TIMESTAMP WHERE id = ?',
+        [id]
+      );
+      
+      await connection.commit();
+      
+      // Send notification email to the previous assignee
+      let emailSent = false;
+      if (previousAssigneeEmail) {
+        emailSent = await sendAssignmentNotification(
+          recordId,
+          recordTitle,
+          previousAssigneeEmail,
+          previousAssigneeName,
+          `${reverterName} (Reversion)`,
+          notes,
+          previousDueDate
+        );
+      }
+      
+      res.status(200).json({ 
+        message: 'Record assignment reverted successfully',
+        assignedTo: previousAssigneeName,
+        emailSent: emailSent
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    
+  } catch (error) {
+    console.error('Error reverting record assignment:', error);
+    res.status(500).json({ message: 'Failed to revert record assignment', error: error.message });
   }
 });
 // Update the /api/kebd/archived endpoint in index.js

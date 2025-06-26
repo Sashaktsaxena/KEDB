@@ -156,16 +156,11 @@
           </div>
           
           <div class="detail-row">
-            <div class="detail-label">Owner:</div>
-            <div class="detail-value owner-select">
-              <select [(ngModel)]="selectedRecord.owner" [disabled]="loadingUsers">
-                <option *ngIf="loadingUsers" value="" disabled>Loading users...</option>
-                <option *ngFor="let user of users" [value]="user.fullName">
-                  {{ user.fullName }} ({{ user.department }})
-                </option>
-              </select>
-            </div>
-          </div>
+  <div class="detail-label">Owner:</div>
+  <div class="detail-value">
+    {{ selectedRecord.owner }}
+  </div>
+</div>
           
           <div class="detail-row">
             <div class="detail-label">Priority:</div>
@@ -178,7 +173,7 @@
           
           <div class="detail-row">
             <div class="detail-label">Date Identified:</div>
-            <div class="detail-value">{{ formatDate(selectedRecord.dateIdentified) }}</div>
+            <div class="detail-value">{{ formatDate(selectedRecord?.dateIdentified) }}</div>
           </div>
           
           <div class="detail-row">
@@ -410,19 +405,19 @@
       </div>
       
       <div class="assignment-modal-body">
-<div *ngIf="selectedRecord?.owner" class="current-owner">
-  <p>Currently assigned to: <strong>{{ selectedRecord?.owner }}</strong></p>
-</div>
+        <div *ngIf="selectedRecord?.owner" class="current-owner">
+          <p>Currently assigned to: <strong>{{ selectedRecord?.owner }}</strong></p>
+        </div>
         
-<div class="form-group">
-  <label for="assignTo">Assign To:</label>
-  <select id="assignTo" [(ngModel)]="assignToUser" [disabled]="loadingUsers">
-    <option value="" disabled selected>{{ loadingUsers ? 'Loading users...' : 'Select a user' }}</option>
-    <option *ngFor="let user of users" [value]="user.fullName">
-      {{ user.fullName }} ({{ user.department }})
-    </option>
-  </select>
-</div>
+        <div class="form-group">
+          <label for="assignTo">Assign To:</label>
+          <select id="assignTo" [(ngModel)]="assignToUser" [disabled]="loadingUsers">
+            <option value="" disabled selected>{{ loadingUsers ? 'Loading users...' : 'Select a user' }}</option>
+            <option *ngFor="let user of users" [value]="user.fullName">
+              {{ user.fullName }} ({{ user.department }})
+            </option>
+          </select>
+        </div>
         
         <div class="form-group">
           <label for="dueDate">Due Date (Optional):</label>
@@ -438,8 +433,45 @@
       
       <div class="assignment-modal-footer">
         <button class="btn-cancel" (click)="showAssignDialog = false">Cancel</button>
+        <!-- Add this button for revert functionality, only show if there are previous assignments -->
+        <button *ngIf="assignmentHistory.length > 1" class="btn-revert" (click)="showRevertDialog()">
+          Revert to Previous
+        </button>
         <button class="btn-assign-submit" (click)="assignRecord()" [disabled]="!assignToUser">
           {{ assignLoading ? 'Assigning...' : 'Assign' }}
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Revert Dialog Modal -->
+  <div class="modal-overlay revert-modal" *ngIf="showRevertModal" (click)="showRevertModal = false">
+    <div class="revert-modal-content" (click)="$event.stopPropagation()">
+      <div class="revert-modal-header">
+        <h3>Revert Assignment</h3>
+        <button class="btn-close" (click)="showRevertModal = false">×</button>
+      </div>
+      
+      <div class="revert-modal-body">
+        <div *ngIf="selectedRecord?.owner" class="current-owner">
+          <p>Currently assigned to: <strong>{{ selectedRecord?.owner }}</strong></p>
+        </div>
+        
+        <div *ngIf="previousAssignee" class="previous-owner">
+          <p>Will be reverted to: <strong>{{ previousAssignee }}</strong></p>
+        </div>
+        
+        <div class="form-group">
+          <label for="revertNotes">Reason for Reverting (Required):</label>
+          <textarea id="revertNotes" [(ngModel)]="revertNotes" rows="3" 
+                    placeholder="Explain why you're reverting this assignment..."></textarea>
+        </div>
+      </div>
+      
+      <div class="revert-modal-footer">
+        <button class="btn-cancel" (click)="showRevertModal = false">Cancel</button>
+        <button class="btn-revert-submit" (click)="revertRecord()" [disabled]="!revertNotes || revertLoading">
+          {{ revertLoading ? 'Reverting...' : 'Revert Assignment' }}
         </button>
       </div>
     </div>

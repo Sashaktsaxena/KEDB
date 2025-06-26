@@ -25,7 +25,10 @@ export class BinComponent implements OnInit {
   showDetailView: boolean = false;
   attachments: Attachment[] = [];
   loadingAttachments: boolean = false;
-  
+  showRevertModal: boolean = false;
+revertNotes: string = '';
+revertLoading: boolean = false;
+previousAssignee: string = '';
   // Image viewer
   viewerOpen: boolean = false;
   currentViewerImage: string = '';
@@ -222,14 +225,25 @@ loadAssignmentHistory(recordId: number): void {
   }
 
   // Format date for display
-formatDate(dateString: string | undefined): string {
+// Update this method in bin.component.ts
+formatDate(dateString: string | undefined | null): string {
+  console.log('Formatting date:', dateString);
   if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  });
+  
+  try {
+    const date = new Date(dateString);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'N/A';
+    
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  } catch (e) {
+    console.error('Error formatting date:', dateString, e);
+    return 'N/A';
+  }
 }
 
 
@@ -245,7 +259,58 @@ formatDate(dateString: string | undefined): string {
       minute: '2-digit'
     });
   }
+showRevertDialog(): void {
+  if (!this.selectedRecord || this.assignmentHistory.length <= 1) {
+    this.showNotification('No previous assignment found for this record', 'warning');
+    return;
+  }
+  
+  // Find the previous assignee (the second item in the history, since it's ordered by most recent first)
+  this.previousAssignee = this.assignmentHistory[1].newAssignee;
+  
+  // Close the assign dialog if it's open
+  this.showAssignDialog = false;
+  
+  // Open the revert dialog
+  this.showRevertModal = true;
+  this.revertNotes = '';
+}
 
+// Add this method to handle the revert operation
+revertRecord(): void {
+  if (!this.selectedRecord || !this.revertNotes.trim()) {
+    this.showNotification('Please provide a reason for reverting', 'warning');
+    return;
+  }
+  
+  this.revertLoading = true;
+  
+  this.kebdService.revertAssignment(
+    this.selectedRecord.id!,
+    this.revertNotes
+  ).subscribe({
+    next: (response) => {
+      // Update the record owner to the previous assignee
+      this.selectedRecord!.owner = this.previousAssignee;
+      
+      // Reset form and close dialog
+      this.showRevertModal = false;
+      this.revertLoading = false;
+      this.revertNotes = '';
+      this.previousAssignee = '';
+      
+      // Reload assignment history
+      this.loadAssignmentHistory(this.selectedRecord!.id!);
+      
+      this.showNotification('Record assignment reverted successfully', 'success');
+    },
+    error: (error) => {
+      console.error('Error reverting assignment:', error);
+      this.revertLoading = false;
+      this.showNotification('Failed to revert assignment: ' + (error.error?.message || 'Unknown error'), 'error');
+    }
+  });
+}
   // Get minimum due date (today)
   getMinDueDate(): string {
     const today = new Date();

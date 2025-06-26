@@ -198,7 +198,16 @@ export class KebdService {
   getAssignmentHistory(recordId: number): Observable<AssignmentHistoryResponse> {
     return this.http.get<AssignmentHistoryResponse>(`${API_URL}/kebd/${recordId}/history`);
   }
-
+// Add this method to kebd.service.ts
+revertAssignment(recordId: number, notes?: string): Observable<any> {
+  console.log('Reverting assignment in service:', {
+    recordId,
+    notes
+  });
+  return this.http.post(`${API_URL}/kebd/${recordId}/revert`, {
+    notes
+  });
+}
   // Assign a record to a user
   assignRecord(recordId: number, assignedTo: string, dueDate?: string, notes?: string): Observable<any> {
       console.log('Assigning record in service:', {

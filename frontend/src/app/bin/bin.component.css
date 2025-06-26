@@ -1169,3 +1169,93 @@ h1 {
   font-weight: 500;
   font-size: 14px;
 }
+/* Revert button styles */
+.btn-revert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-revert:hover {
+  background-color: #f57c00;
+}
+
+.btn-revert svg {
+  stroke-width: 2;
+}
+
+/* Revert modal styles */
+.revert-modal-content {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+}
+
+.revert-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.revert-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.revert-modal-body {
+  padding: 20px;
+}
+
+.revert-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.previous-owner {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #fff3e0;
+  border-radius: 4px;
+  border-left: 4px solid #ff9800;
+}
+
+.btn-revert-submit {
+  background-color: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+}
+
+.btn-revert-submit:hover:not(:disabled) {
+  background-color: #f57c00;
+}
+
+.btn-revert-submit:disabled {
+  background-color: #ffcc80;
+  cursor: not-allowed;
+}

@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './auth/auth.guard';
 import { LoginComponent } from './login/login.component';
-
+import { DraftsComponent } from './drafts/drafts.component';
 export const routes: Routes = [
   { 
     path: 'login', 
@@ -26,6 +26,11 @@ export const routes: Routes = [
     path: 'bin', 
     loadComponent: () => import('./bin/bin.component').then(m => m.BinComponent),
     canActivate: [AuthGuard]
+  },
+    { 
+    path: 'drafts', 
+    component: DraftsComponent, 
+    canActivate: [AuthGuard] 
   },
   { 
     path: '**', 

@@ -94,7 +94,29 @@ export class KebdService {
   getKebdRecords(): Observable<KebdRecord[]> {
     return this.http.get<KebdRecord[]>(`${API_URL}/kebd`);
   }
+saveDraft(formData: any): Observable<any> {
+  return this.http.post(`${API_URL}/drafts`, formData);
+}
 
+// Get all drafts for the current user
+getDrafts(): Observable<any[]> {
+  return this.http.get<any[]>(`${API_URL}/drafts`);
+}
+
+// Get a specific draft
+getDraft(id: number): Observable<any> {
+  return this.http.get<any>(`${API_URL}/drafts/${id}`);
+}
+
+// Delete a draft
+deleteDraft(id: number): Observable<any> {
+  return this.http.delete(`${API_URL}/drafts/${id}`);
+}
+
+// Submit a draft as a complete record
+submitDraft(id: number, formData: any): Observable<any> {
+  return this.http.post(`${API_URL}/drafts/${id}/submit`, formData);
+}
   getKebdRecord(id: number): Observable<KebdRecord> {
     return this.http.get<KebdRecord>(`${API_URL}/kebd/${id}`);
   }
@@ -121,6 +143,7 @@ export class KebdService {
       observe: 'events'
     });
   }
+  
 
   uploadAttachmentWithComment(recordId: number, file: File, comment: string): Observable<any> {
     const formData = new FormData();

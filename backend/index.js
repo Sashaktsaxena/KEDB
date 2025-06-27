@@ -468,6 +468,380 @@ app.get('/api/kebd', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch KEBD records', error: error.message });
   }
 });
+app.post('/api/drafts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const formData = req.body;
+    
+    // Generate a draft error ID for display purposes
+    const year = new Date().getFullYear();
+    const currentYearShort = year.toString().slice(-2);
+    const nextyearshort = (year+1).toString().slice(-2);
+    const yearPrefix = `DRAFT-${currentYearShort}${nextyearshort}`;
+    
+    const [lastDraftId] = await pool.query(
+      'SELECT MAX(CAST(SUBSTRING_INDEX(error_id, "-", -1) AS UNSIGNED)) as maxIdNum FROM draft_records WHERE error_id LIKE ?',
+      [`DRAFT-%`]
+    );
+    
+    let nextIdNum = 1;
+    if (lastDraftId[0].maxIdNum) {
+      nextIdNum = lastDraftId[0].maxIdNum + 1;
+    }
+    
+    const paddedNum = nextIdNum.toString().padStart(4, '0');
+    const draftErrorId = `${yearPrefix}-${paddedNum}`;
+    
+    // Check if this is updating an existing draft
+    if (formData.draftId) {
+      await pool.query(
+        'UPDATE draft_records SET form_data = ?, last_updated = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?',
+        [JSON.stringify(formData), formData.draftId, userId]
+      );
+      
+      res.status(200).json({
+        message: 'Draft updated successfully',
+        draftId: formData.draftId,
+        errorId: formData.draftErrorId || draftErrorId
+      });
+    } else {
+      // Create new draft
+      const [result] = await pool.query(
+        'INSERT INTO draft_records (user_id, error_id, form_data, created_at, last_updated) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+        [userId, draftErrorId, JSON.stringify(formData)]
+      );
+      
+      res.status(201).json({
+        message: 'Draft saved successfully',
+        draftId: result.insertId,
+        errorId: draftErrorId
+      });
+    }
+  } catch (error) {
+    console.error('Error saving draft:', error);
+    res.status(500).json({ message: 'Failed to save draft', error: error.message });
+  }
+});
+
+// Get all drafts for the current user
+// Get all drafts for the current user
+app.get('/api/drafts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const [drafts] = await pool.query(
+      'SELECT id, error_id, form_data, created_at, last_updated FROM draft_records WHERE user_id = ? ORDER BY last_updated DESC',
+      [userId]
+    );
+    
+    // Parse the JSON stored in form_data
+    const parsedDrafts = drafts.map(draft => {
+      let formData;
+      
+      try {
+        // Check if form_data is already an object
+        if (typeof draft.form_data === 'object' && draft.form_data !== null) {
+          formData = draft.form_data;
+        } else {
+          // If it's a string, try to parse it
+          formData = JSON.parse(draft.form_data);
+        }
+      } catch (err) {
+        console.error('Error parsing form_data:', err);
+        formData = {}; // Fallback to empty object if parsing fails
+      }
+      
+      return {
+        id: draft.id,
+        errorId: draft.error_id,
+        title: formData.title || 'Untitled Draft',
+        createdAt: draft.created_at,
+        lastUpdated: draft.last_updated,
+        category: formData.category || 'Uncategorized',
+        status: 'Draft',
+        dateIdentified: formData.dateIdentified || null,
+        description: formData.description || null,
+        completionPercentage: calculateCompletionPercentage(formData)
+      };
+    });
+    
+    res.status(200).json(parsedDrafts);
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
+    res.status(500).json({ message: 'Failed to fetch drafts', error: error.message });
+  }
+});
+// Helper function to calculate completion percentage
+// Helper function to calculate completion percentage
+function calculateCompletionPercentage(formData) {
+  // Handle case where formData might be a string
+  if (typeof formData === 'string') {
+    try {
+      formData = JSON.parse(formData);
+    } catch (err) {
+      console.error('Error parsing form_data in calculateCompletionPercentage:', err);
+      return 0; // Return 0% if we can't parse the data
+    }
+  }
+  
+  // Define required fields for a complete record
+  const requiredFields = [
+    'title', 'description', 'rootCause', 'impact', 'category',
+    'subcategory', 'workaround', 'status', 'dateIdentified',
+    'owner', 'priority', 'environment'
+  ];
+  
+  let filledCount = 0;
+  for (const field of requiredFields) {
+    if (formData[field] && formData[field].trim && formData[field].trim() !== '') {
+      filledCount++;
+    } else if (formData[field] && !formData[field].trim && formData[field] !== '') {
+      filledCount++;
+    }
+  }
+  
+  return Math.round((filledCount / requiredFields.length) * 100);
+}
+// Get a specific draft by ID
+// Get a specific draft by ID
+app.get('/api/drafts/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const draftId = req.params.id;
+    
+    const [drafts] = await pool.query(
+      'SELECT id, error_id, form_data, created_at, last_updated FROM draft_records WHERE id = ? AND user_id = ?',
+      [draftId, userId]
+    );
+    
+    if (drafts.length === 0) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+    
+    const draft = drafts[0];
+    let formData;
+    
+    try {
+      // Check if form_data is already an object
+      if (typeof draft.form_data === 'object' && draft.form_data !== null) {
+        formData = draft.form_data;
+      } else {
+        // If it's a string, try to parse it
+        formData = JSON.parse(draft.form_data);
+      }
+    } catch (err) {
+      console.error('Error parsing form_data:', err);
+      formData = {}; // Fallback to empty object if parsing fails
+    }
+    
+    res.status(200).json({
+      id: draft.id,
+      errorId: draft.error_id,
+      formData: formData,
+      createdAt: draft.created_at,
+      lastUpdated: draft.last_updated
+    });
+  } catch (error) {
+    console.error('Error fetching draft:', error);
+    res.status(500).json({ message: 'Failed to fetch draft', error: error.message });
+  }
+});
+
+// Delete a draft
+app.delete('/api/drafts/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const draftId = req.params.id;
+    
+    const [result] = await pool.query(
+      'DELETE FROM draft_records WHERE id = ? AND user_id = ?',
+      [draftId, userId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+    
+    res.status(200).json({ message: 'Draft deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting draft:', error);
+    res.status(500).json({ message: 'Failed to delete draft', error: error.message });
+  }
+});
+
+// Submit a draft as a complete record
+app.post('/api/drafts/:id/submit', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const draftId = req.params.id;
+    const formData = req.body;
+    
+    // Get the draft to verify ownership
+    const [drafts] = await pool.query(
+      'SELECT id, error_id, form_data FROM draft_records WHERE id = ? AND user_id = ?',
+      [draftId, userId]
+    );
+    
+    if (drafts.length === 0) {
+      return res.status(404).json({ message: 'Draft not found' });
+    }
+    
+    // Generate a new error ID for the actual record
+    const year = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    let startYear, endYear;
+    
+    if (currentMonth >= 3) { // April (month 3) or later
+      startYear = currentYear;
+      endYear = currentYear + 1;
+    } else {
+      startYear = currentYear - 1;
+      endYear = currentYear;
+    }
+    
+    // Convert to last two digits format
+    const startYearShort = startYear.toString().slice(-2);
+    const endYearShort = endYear.toString().slice(-2);
+    
+    // Create the year prefix (e.g., "2324" for Apr 2023-Mar 2024)
+    const yearPrefix = `${startYearShort}${endYearShort}`;
+    
+    // Get the highest ID number for this fiscal year pattern
+    const [maxIdResult] = await pool.query(
+      'SELECT MAX(CAST(SUBSTRING(error_id, 5) AS UNSIGNED)) as maxIdNum FROM knowledge_errors WHERE error_id LIKE ?',
+      [`${yearPrefix}%`]
+    );
+
+    let nextIdNum = 1;
+    if (maxIdResult[0].maxIdNum) {
+      nextIdNum = maxIdResult[0].maxIdNum + 1;
+    }
+    
+    const paddedNum = nextIdNum.toString().padStart(4, '0');
+    const generateErrorId = `${yearPrefix}${paddedNum}`;
+    
+    // Extract fields from form data
+    const {
+      title,
+      description,
+      rootCause,
+      impact,
+      category,
+      subcategory,
+      workaround,
+      resolution,
+      status,
+      dateIdentified,
+      linkedIncidents,
+      owner,
+      priority,
+      environment,
+      attachments
+    } = formData;
+
+    // Get owner_id from users table based on the owner name
+    let ownerId = null;
+    if (owner) {
+      const [ownerResult] = await pool.query(
+        'SELECT id FROM users WHERE full_name = ?',
+        [owner]
+      );
+      
+      if (ownerResult.length > 0) {
+        ownerId = ownerResult[0].id;
+      }
+    }
+
+    // Begin transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Insert the new record
+      const query = `
+        INSERT INTO knowledge_errors (
+          error_id, 
+          title, 
+          description, 
+          root_cause, 
+          impact, 
+          category,
+          subcategory,
+          workaround, 
+          resolution, 
+          status, 
+          date_identified, 
+          linked_incidents, 
+          owner,
+          owner_id,
+          priority,
+          environment,
+          attachments,
+          last_updated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `;
+
+      const [result] = await connection.execute(query, [
+        generateErrorId,
+        title,
+        description,
+        rootCause,
+        impact,
+        category,
+        subcategory,
+        workaround,
+        resolution || null,
+        status,
+        dateIdentified,
+        linkedIncidents || null,
+        owner,
+        ownerId,
+        priority,
+        environment,
+        attachments || null
+      ]);
+
+      // If this is the first assignment, also add it to record_assignments table
+      if (ownerId) {
+        await connection.query(
+          'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, status) VALUES (?, ?, ?, "active")',
+          [result.insertId, ownerId, userId]
+        );
+        
+        // Also add to assignment_history
+        await connection.query(
+          'INSERT INTO assignment_history (record_id, previous_owner_id, new_owner_id, changed_by_user_id) VALUES (?, NULL, ?, ?)',
+          [result.insertId, ownerId, userId]
+        );
+      }
+      
+      // Delete the draft
+      await connection.query(
+        'DELETE FROM draft_records WHERE id = ? AND user_id = ?',
+        [draftId, userId]
+      );
+      
+      await connection.commit();
+      
+      res.status(201).json({
+        message: 'Draft submitted successfully as a record',
+        id: result.insertId,
+        errorId: generateErrorId
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    
+  } catch (error) {
+    console.error('Error submitting draft:', error);
+    res.status(500).json({ message: 'Failed to submit draft', error: error.message });
+  }
+});
 // Add this endpoint to index.js
 app.post('/api/kebd/:id/revert', authenticateToken, async (req, res) => {
   try {

@@ -1,9 +1,9 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl, AbstractControl, ValidationErrors } from '@angular/forms';
-import { RouterOutlet, RouterModule, Router } from '@angular/router';
+import { RouterOutlet, RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
-import { finalize, forkJoin } from 'rxjs';
+
 import { KebdService } from './kebd.service';
 import { FormsModule } from '@angular/forms'; // Add this import
 
@@ -89,13 +89,20 @@ export class AppComponent implements OnInit {
   uploadProgress: number = 0;
   isUploading: boolean = false;
   fileComments: string[] = [];
-
+  draftId: number | null = null;
+draftErrorId: string | null = null;
+notification: { message: string, type: 'success' | 'warning' | 'error', visible: boolean } = {
+  message: '',
+  type: 'success',
+  visible: false
+};
   @ViewChild('textArea') textArea!: ElementRef;
 
   constructor(
     private fb: FormBuilder, 
     private kebdService: KebdService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
@@ -114,10 +121,29 @@ export class AppComponent implements OnInit {
     // Calculate total steps
     this.totalSteps = this.formFields.length;
     this.loadUsers();
+      this.route.queryParams.subscribe(params => {
+    if (params['draftId']) {
+      this.loadDraft(parseInt(params['draftId'], 10));
+    }
+  });
   }
 
   // Navigate to next step with animation
   next() {
+      if (this.draftId !== null) {
+    // Start fade-out animation
+    this.isAnimating = true;
+    
+    // Wait for animation to complete before changing step
+    setTimeout(() => {
+      this.currentStep++;
+      // Reset animation state after a brief delay to trigger fade-in
+      setTimeout(() => {
+        this.isAnimating = false;
+      }, 50);
+    }, 300); // Match this with the CSS transition duration
+    return;
+  }
     // Check if current step's fields are valid
     const currentFields = this.formFields[this.currentStep].map(field => field.name);
     const stepValid = currentFields.every(field => {
@@ -178,7 +204,76 @@ export class AppComponent implements OnInit {
       }
     })
   }
+  loadDraft(draftId: number): void {
+  this.kebdService.getDraft(draftId).subscribe({
+    next: (draft) => {
+      this.draftId = draft.id;
+      this.draftErrorId = draft.errorId;
+      
+      // Populate form with draft data
+      this.kebdForm.patchValue(draft.formData);
+      
+      // Set the current step
+      if (draft.formData.currentStep !== undefined) {
+        this.currentStep = draft.formData.currentStep;
+      }
+      
+      // Load file comments if any
+      if (draft.formData.fileComments) {
+        this.fileComments = draft.formData.fileComments;
+      }
+      
+      this.showNotification(`Draft "${draft.errorId}" loaded successfully`, 'success');
+    },
+    error: (error) => {
+      console.error('Error loading draft:', error);
+      this.showNotification('Failed to load draft', 'error');
+    }
+  });
+}
+saveAsDraft(): void {
+  // Get the current form values - even if incomplete or invalid
+  const formData = {
+    ...this.kebdForm.value,
+    draftId: this.draftId, // Include if updating an existing draft
+    draftErrorId: this.draftErrorId, // Include if we already have a draft error ID
+    currentStep: this.currentStep,
+    fileComments: this.fileComments,
+    selectedFiles: this.selectedFiles.map(file => file.name), // We can't store the files, just track their names
+    timestamp: new Date().toISOString()
+  };
+  
+  this.kebdService.saveDraft(formData).subscribe({
+    next: (response) => {
+      this.draftId = response.draftId;
+      this.draftErrorId = response.errorId;
+      this.showNotification(`Draft saved successfully as ${response.errorId}`, 'success');
+      
+      // Optionally, redirect to the drafts page after a delay
+      setTimeout(() => {
+        this.router.navigate(['/drafts']);
+      }, 2000);
+    },
+    error: (error) => {
+      console.error('Error saving draft:', error);
+      this.showNotification('Failed to save draft', 'error');
+    }
+  });
+}
 
+// Add this notification method
+showNotification(message: string, type: 'success' | 'warning' | 'error' = 'success'): void {
+  this.notification = {
+    message,
+    type,
+    visible: true
+  };
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    this.notification.visible = false;
+  }, 5000);
+}
   updateOwnerOptions():void{
     for (const stepFields of this.formFields){
       const ownerField=stepFields.find(field => field.name === 'owner');
@@ -215,13 +310,18 @@ onSubmit(): void {
 
   this.isUploading = true;
   this.uploadProgress = 0;
-
+  const isDraftSubmission = !!this.draftId;
   // First submit the form data
   this.kebdService.createKebdRecord(formData).subscribe({
     next: (response) => {
       // Get the created record ID
       const recordId = response.id;
-      
+      if (isDraftSubmission) {
+        this.kebdService.deleteDraft(this.draftId!).subscribe({
+          next: () => console.log(`Successfully deleted draft ${this.draftId} after submission`),
+          error: (error) => console.error(`Failed to delete draft ${this.draftId} after submission:`, error)
+        });
+      }
       if (this.selectedFiles.length === 0) {
         // No files to upload
         this.success = true;

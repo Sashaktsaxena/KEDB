@@ -52,10 +52,14 @@ previousAssignee: string = '';
   users: any[] = [];
 loadingUsers: boolean = false;
   // Add pagination properties
-  currentPage: number = 1;
   pageSize: number = 10;
-  pageSizeOptions: number[] = [5, 10, 25, 50, 100];
-  totalPages: number = 1;
+pageSizeOptions: number[] = [5, 10, 25, 50, 100];
+totalPages: number = 1;
+currentPage: number = 1;
+paginationRange: number[] = [];
+customPageSize: number = 0;
+customPageSizeInput: number = 0;
+showCustomPageSizeInput: boolean = false;
   
   // Add these properties to your class
   assignmentHistory: any[] = [];
@@ -132,6 +136,9 @@ ngOnInit(): void {
       );
     }
     
+    // Save the filtered records
+    this.filteredRecords = filtered;
+    
     // Calculate total pages
     this.totalPages = Math.max(1, Math.ceil(filtered.length / this.pageSize));
     
@@ -140,13 +147,15 @@ ngOnInit(): void {
       this.currentPage = this.totalPages;
     }
     
-    // Apply pagination
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    this.filteredRecords = filtered.slice(startIndex, startIndex + this.pageSize);
+    // Update pagination range
+    this.updatePaginationRange();
   }
 
   // Open record details
   openRecordDetails(record: KebdRecord): void {
+      console.log('Opening record details:', record);
+  console.log('Date identified:', record.dateIdentified);
+  console.log('Last updated:', record.lastUpdated);
     this.selectedRecord = record;
     this.showDetailView = true;
     
@@ -155,6 +164,7 @@ ngOnInit(): void {
       this.loadAssignmentHistory(record.id);
     }
   }
+// Add this to bin.component.ts
 
   // Load attachments for a record
   loadAttachments(recordId: number): void {
@@ -542,10 +552,7 @@ revertRecord(): void {
   }
 
   // Change the page size
-  changePageSize(): void {
-    this.currentPage = 1; // Reset to first page when changing page size
-    this.applyFilter();
-  }
+
 notification: { message: string, type: 'success' | 'warning' | 'error', visible: boolean } = {
   message: '',
   type: 'success',
@@ -701,5 +708,98 @@ uploadAttachmentWithComment(): void {
       this.error = 'Failed to upload attachment. Please try again.';
     }
   });
+}
+
+// Add this method to update pagination range
+updatePaginationRange(): void {
+  this.paginationRange = [];
+  const maxPagesToShow = 5;
+  
+  if (this.totalPages <= maxPagesToShow) {
+    // If total pages is less than max to show, display all pages
+    for (let i = 1; i <= this.totalPages; i++) {
+      this.paginationRange.push(i);
+    }
+  } else {
+    // Always show first page
+    this.paginationRange.push(1);
+    
+    // Calculate start and end of the range
+    let start = Math.max(2, this.currentPage - 1);
+    let end = Math.min(this.totalPages - 1, this.currentPage + 1);
+    
+    // Adjust to show 3 pages in the middle
+    if (start === 2) end = Math.min(4, this.totalPages - 1);
+    if (end === this.totalPages - 1) start = Math.max(2, this.totalPages - 3);
+    
+    // Add ellipsis if needed
+    if (start > 2) this.paginationRange.push(-1); // -1 represents ellipsis
+    
+    // Add the middle pages
+    for (let i = start; i <= end; i++) {
+      this.paginationRange.push(i);
+    }
+    
+    // Add ellipsis if needed
+    if (end < this.totalPages - 1) this.paginationRange.push(-1); // -1 represents ellipsis
+    
+    // Always show last page
+    this.paginationRange.push(this.totalPages);
+  }
+}
+
+// Add these pagination control methods
+goToPage(page: number): void {
+  if (page >= 1 && page <= this.totalPages) {
+    this.currentPage = page;
+    this.applyFilter();
+  }
+}
+
+nextPage(): void {
+  if (this.currentPage < this.totalPages) {
+    this.currentPage++;
+    this.applyFilter();
+  }
+}
+
+previousPage(): void {
+  if (this.currentPage > 1) {
+    this.currentPage--;
+    this.applyFilter();
+  }
+}
+
+changePageSize(event: Event): void {
+  const select = event.target as HTMLSelectElement;
+  const value = select.value;
+  
+  if (value === 'custom') {
+    this.showCustomPageSizeInput = true;
+    this.customPageSizeInput = this.pageSize;
+  } else {
+    this.pageSize = parseInt(value, 10);
+    this.currentPage = 1; // Reset to first page
+    this.applyFilter();
+  }
+}
+
+applyCustomPageSize(): void {
+  if (this.customPageSizeInput > 0) {
+    this.pageSize = this.customPageSizeInput;
+    this.showCustomPageSizeInput = false;
+    this.currentPage = 1; // Reset to first page
+    this.applyFilter();
+  }
+}
+
+cancelCustomPageSize(): void {
+  this.showCustomPageSizeInput = false;
+}
+
+// Add a computed property for paginated records
+get paginatedRecords(): KebdRecord[] {
+  const startIndex = (this.currentPage - 1) * this.pageSize;
+  return this.filteredRecords.slice(startIndex, startIndex + this.pageSize);
 }
 }

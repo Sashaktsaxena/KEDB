@@ -1259,3 +1259,140 @@ h1 {
   background-color: #ffcc80;
   cursor: not-allowed;
 }
+/* Pagination styles */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #666;
+  text-align: left;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 5px;
+}
+
+.pagination-btn, 
+.pagination-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #ddd;
+  background-color: #fff;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled),
+.pagination-page:hover:not(:disabled):not(.active) {
+  background-color: #f0f0f0;
+  border-color: #bbb;
+}
+
+.pagination-page.active {
+  background-color: #5fa0dB;
+  color: white;
+  border-color: #5fa0dB;
+}
+
+.pagination-btn:disabled,
+.pagination-page:disabled,
+.pagination-page.ellipsis {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #f8f8f8;
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.page-size-controls {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.page-size-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  color: #333;
+  font-size: 14px;
+}
+
+.custom-page-size {
+  display: flex;
+  align-items: center;
+  margin-left: 10px;
+  gap: 5px;
+}
+
+.custom-page-size-input {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.btn-apply, .btn-cancel {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-apply {
+  background-color: #5fa0dB;
+  color: white;
+}
+
+.btn-cancel {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+@media screen and (min-width: 768px) {
+  .pagination-container {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .pagination-info {
+    flex: 1;
+  }
+  
+  .pagination-size {
+    margin-top: 0;
+  }
+}

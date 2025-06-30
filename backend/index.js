@@ -927,7 +927,7 @@ app.post('/api/kebd/:id/revert', authenticateToken, async (req, res) => {
       
       // Add new assignment entry for the previous assignee
       await connection.query(
-        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes,status) VALUES (?, ?, ?, ?, ?, "active")',
         [id, previousAssigneeId, req.user.id, previousDueDate || null, notes || null]
       );
       
@@ -993,7 +993,7 @@ app.get('/api/kebd/archived', authenticateToken, async (req, res) => {
        FROM knowledge_errors ke
        LEFT JOIN (
          SELECT * FROM record_assignments 
-         WHERE status = 'active'
+         WHERE status = 'active' 
        ) ra ON ke.id = ra.record_id
        LEFT JOIN users u ON ra.assigned_to_user_id = u.id
        WHERE ke.owner_id = ? OR ra.assigned_to_user_id = ?
@@ -1121,7 +1121,7 @@ app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
       
       // Add new assignment entry
       await connection.query(
-        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO record_assignments (record_id, assigned_to_user_id, assigned_by_user_id, due_date, notes,status) VALUES (?, ?, ?, ?, ?,"active")',
         [id, assignedToUserId, req.user.id, dueDate || null, notes || null]
       );
       

@@ -39,86 +39,100 @@
   
   <!-- Records grid -->
   <div *ngIf="!loading && !error && filteredRecords.length > 0" class="records-grid">
-    <div class="grid-header">
-      <div class="col-errorId">ID</div>
-      <div class="col-title">Title</div>
-      <div class="col-category">Category</div>
-      <div class="col-subcategory">Subcategory</div>
-      <div class="col-status">Status</div>
-      <div class="col-owner">Owner</div>
+  <div class="grid-header">
+    <div class="col-errorId">ID</div>
+    <div class="col-title">Title</div>
+    <div class="col-category">Category</div>
+    <div class="col-subcategory">Subcategory</div>
+    <div class="col-status">Status</div>
+    <div class="col-owner">Owner</div>
+  </div>
+  
+  <div *ngFor="let record of paginatedRecords" class="grid-row">
+    <div class="col-errorId" (click)="openRecordDetails(record)">
+      <a href="javascript:void(0)" class="record-id-link">
+        <span *ngIf="record.errorId">{{ record.errorId }}</span>
+        <span *ngIf="!record.errorId">ID-{{ record.id || 'Unknown' }}</span>
+      </a>
     </div>
-    
-    <div *ngFor="let record of filteredRecords" class="grid-row">
-      <div class="col-errorId" (click)="openRecordDetails(record)">
-        <a href="javascript:void(0)" class="record-id-link">
-          <!-- Replace the incorrect condition -->
-          <span *ngIf="record.errorId">{{ record.errorId }}</span>
-          <span *ngIf="!record.errorId">ID-{{ record.errorId || 'Unknown' }}</span>
-          <!-- Add eye icon for better UX -->
- 
-        </a>
+    <div class="col-title" [title]="record.title">{{ record.title }}</div>
+    <div class="col-category">{{ record.category }}</div>
+    <div class="col-subcategory">{{ record.subcategory }}</div>
+    <div class="col-status">
+      <span class="status-badge" [ngClass]="'status-' + record.status.toLowerCase().replace(' ', '-')">
+        {{ record.status }}
+      </span>
+    </div>
+    <div class="col-owner">
+      {{ record.owner }}
+      <div *ngIf="record.dueDate" class="owner-due-date" [ngClass]="getDueStatusClass(record.dueDate)">
+        Due: {{ formatDate(record.dueDate) }}
       </div>
-      <div class="col-title" [title]="record.title">{{ record.title }}</div>
-      <div class="col-category">{{ record.category }}</div>
-      <div class="col-subcategory">{{ record.subcategory }}</div>
-      <div class="col-status">
-        <span class="status-badge" [ngClass]="'status-' + record.status.toLowerCase().replace(' ', '-')">
-          {{ record.status }}
-        </span>
-      </div>
-      <div class="col-owner">
-        {{ record.owner }}
-        <div *ngIf="record.dueDate" class="owner-due-date" [ngClass]="getDueStatusClass(record.dueDate)">
-          Due: {{ formatDate(record.dueDate) }}
-        </div>
+    </div>
+  </div>
+</div>
+
+  
+  <!-- Add pagination below the grid -->
+  <div *ngIf="!loading && !error && filteredRecords.length > 0" class="pagination-container">
+  <div class="pagination-info">
+    Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, filteredRecords.length) }} of {{ filteredRecords.length }} archived records
+  </div>
+  
+  <div class="pagination-size">
+    <label for="page-size">Rows per page:</label>
+    <div class="page-size-controls">
+      <select id="page-size" [ngModel]="pageSize" (change)="changePageSize($event)" class="page-size-select">
+        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        <option [value]="customPageSize" *ngIf="!pageSizeOptions.includes(pageSize)">{{ pageSize }}</option>
+        <option value="custom">Custom...</option>
+      </select>
+      
+      <!-- Custom page size input, shown when "Custom..." is selected -->
+      <div *ngIf="showCustomPageSizeInput" class="custom-page-size">
+        <input 
+          type="number" 
+          [(ngModel)]="customPageSizeInput" 
+          min="1" 
+          max="1000"
+          class="custom-page-size-input"
+          placeholder="Enter rows"
+        >
+        <button class="btn-apply" (click)="applyCustomPageSize()">Apply</button>
+        <button class="btn-cancel" (click)="cancelCustomPageSize()">Cancel</button>
       </div>
     </div>
   </div>
   
-  <!-- Add pagination below the grid -->
-  <div *ngIf="!loading && !error && archivedRecords.length > 0" class="pagination-container">
-    <div class="pagination-controls">
+  <div class="pagination-controls">
+    <button class="pagination-btn" [disabled]="currentPage === 1" (click)="goToPage(1)" title="First Page">
+      «
+    </button>
+    <button class="pagination-btn" [disabled]="currentPage === 1" (click)="previousPage()" title="Previous Page">
+      ‹
+    </button>
+    
+    <div class="pagination-pages">
       <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === 1" 
-        (click)="changePage(1)">
-        &laquo;
-      </button>
-      <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === 1" 
-        (click)="changePage(currentPage - 1)">
-        &lsaquo;
-      </button>
-      
-      <div class="pagination-info">
-        Page {{ currentPage }} of {{ totalPages }}
-      </div>
-      
-      <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === totalPages" 
-        (click)="changePage(currentPage + 1)">
-        &rsaquo;
-      </button>
-      <button 
-        class="pagination-btn" 
-        [disabled]="currentPage === totalPages" 
-        (click)="changePage(totalPages)">
-        &raquo;
+        *ngFor="let page of paginationRange" 
+        class="pagination-page" 
+        [class.active]="page === currentPage"
+        [class.ellipsis]="page === -1"
+        [disabled]="page === -1"
+        (click)="page !== -1 && goToPage(page)"
+      >
+        {{ page === -1 ? '...' : page }}
       </button>
     </div>
     
-    <div class="page-size-selector">
-      <label for="pageSize">Records per page:</label>
-      <select 
-        id="pageSize" 
-        [(ngModel)]="pageSize" 
-        (change)="changePageSize()">
-        <option *ngFor="let size of pageSizeOptions" [value]="size" >{{ size }}</option>
-      </select>
-    </div>
+    <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="nextPage()" title="Next Page">
+      ›
+    </button>
+    <button class="pagination-btn" [disabled]="currentPage === totalPages" (click)="goToPage(totalPages)" title="Last Page">
+      »
+    </button>
   </div>
+</div>
   
   <!-- Record Detail Modal -->
   <div class="modal-overlay" *ngIf="showDetailView" (click)="closeDetailView()">

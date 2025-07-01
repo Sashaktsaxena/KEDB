@@ -226,7 +226,7 @@
           <div class="lifecycle-header">
             <h3>Assignment History</h3>
             <button class="btn-assign" (click)="showAssignDialog = true">
-              {{ selectedRecord?.currentAssignee ? 'Reassign' : 'Assign' }}
+              Action buttons
             </button>
           </div>
           
@@ -342,7 +342,7 @@
       
       <div class="modal-footer">
         <button class="btn-assign" (click)="showAssignDialog = true">
-          {{ selectedRecord?.owner ? 'Reassign' : 'Assign' }}
+          Action buttons
         </button>
         <button class="btn-restore" (click)="restoreRecord()" *ngIf="selectedRecord?.status === 'Archived'">
           Restore Record

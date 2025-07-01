@@ -247,13 +247,13 @@ button {
 }
 
 .btn-primary {
-  background-color: rgb(18, 121, 216);
+  background-color: #bbe2f0;
   color: #000000; /* Changed to black text */
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: rgb(10, 101, 186);
+  background-color:#bbe2f0;
   box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
   transform: translateY(-2px);
 }
@@ -710,4 +710,365 @@ button {
   background-color: #fdecea;
   border-left: 4px solid #d32f2f;
   color: #d32f2f;
+}
+/* Enhanced dropdown styling with blue hover effects */
+select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  color: var(--text-dark);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23546e7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+select:hover {
+  border-color: #64b5f6;
+  background-color: #f5f9ff;
+}
+
+select:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.25);
+  background-color: white;
+}
+
+/* Custom dropdown options styling */
+select option {
+  padding: 12px;
+  background-color: white;
+  color: var(--text-dark);
+}
+
+/* This creates a custom dropdown experience */
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-wrapper select {
+  width: 100%;
+}
+
+/* Add this to your HTML for each select */
+select:focus option:hover {
+  background-color: #e3f2fd !important;
+  color: #1976d2 !important;
+  box-shadow: 0 0 10px 100px #e3f2fd inset !important;
+}
+
+/* For Chrome and Safari */
+select option:checked {
+  background: linear-gradient(0deg, #bbdefb 0%, #bbdefb 100%);
+  background-color: #bbdefb !important;
+}
+
+/* For Firefox */
+@-moz-document url-prefix() {
+  select {
+    border-radius: 8px;
+    color: var(--text-dark);
+  }
+  
+  select:hover {
+    border-color: #64b5f6;
+  }
+
+  select:focus {
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.25);
+  }
+  
+  select option {
+    background-color: white;
+    color: var(--text-dark);
+    padding: 12px;
+  }
+  
+  select option:hover,
+  select option:focus {
+    box-shadow: 0 0 10px 100px #e3f2fd inset !important;
+    background-color: #e3f2fd !important;
+    color: #1976d2 !important;
+  }
+}
+/* Enhanced text field styling */
+input[type="text"],
+input[type="date"] {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  color: var(--text-dark);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+input[type="text"]:hover,
+input[type="date"]:hover {
+  border-color: #64b5f6;
+  background-color: #f5f9ff;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.25);
+  background-color: white;
+}
+
+/* Invalid state styling */
+input.invalid {
+  border-color: #f44336;
+  background-color: #fff8f8;
+}
+
+input.invalid:focus {
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.25);
+}
+
+/* Add a subtle floating label effect */
+.form-group {
+  position: relative;
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 500;
+  color: var(--text-dark);
+  font-size: 15px;
+  transition: all 0.3s ease;
+}
+
+/* Focus and filled state animations */
+.form-group input:focus + label,
+.form-group input:not(:placeholder-shown) + label {
+  color: #2196f3;
+  font-weight: 500;
+}
+/* Enhanced textarea styling */
+.textarea-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--neutral-border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  color: var(--text-dark);
+  min-height: 120px;
+  resize: vertical;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+textarea:hover {
+  border-color: #64b5f6;
+  background-color: #f5f9ff;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.25);
+  background-color: white;
+}
+
+textarea.invalid {
+  border-color: #f44336;
+  background-color: #fff8f8;
+}
+
+textarea.invalid:focus {
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.25);
+}
+
+/* Character counter for textarea (optional) */
+.textarea-counter {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 12px;
+  color: #78909c;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Enhanced file comment textarea */
+.file-comment-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  transition: all 0.3s ease;
+  background-color: #f5f9ff;
+}
+
+.file-comment-input:hover {
+  border-color: #64b5f6;
+}
+
+.file-comment-input:focus {
+  border-color: #2196f3;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.15);
+  background-color: white;
+}
+/* Add visual cues for active and filled states */
+.form-group {
+  position: relative;
+}
+
+/* Add a subtle transition effect when focusing on form fields */
+.form-field-focus-effect {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: #2196f3;
+  transition: width 0.3s ease;
+}
+
+input:focus ~ .form-field-focus-effect,
+textarea:focus ~ .form-field-focus-effect,
+select:focus ~ .form-field-focus-effect {
+  width: 100%;
+}
+
+/* Add an active state indicator */
+.form-field-active {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #2196f3;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+input:focus ~ .form-field-active,
+textarea:focus ~ .form-field-active,
+select:focus ~ .form-field-active {
+  opacity: 1;
+}
+/* Interactive file comment fields */
+.file-comment {
+  position: relative;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  transition: all 0.3s ease;
+}
+
+.file-comment::before {
+  content: "Description";
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-size: 12px;
+  color: #64b5f6;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.file-comment:focus-within::before {
+  opacity: 1;
+}
+
+.file-comment-input {
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.file-comment-input:focus {
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.15);
+}
+
+.file-item:hover .file-comment-input {
+  background-color: #f5f9ff;
+}
+/* Form group enhancements */
+.form-group {
+  margin-bottom: 25px;
+  background-color: white;
+  border-radius: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.form-group:focus-within {
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
+}
+
+/* Form container enhancements */
+.form-container {
+  background-color: white;
+  padding: 35px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* Form fields animation */
+.form-fields {
+  transition: all 0.3s ease;
+}
+
+.fade-in {
+  animation: fadeInEffect 0.5s ease forwards;
+}
+
+@keyframes fadeInEffect {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Blue background for hover on all interactive elements */
+button:hover, 
+.btn-browse:hover,
+input[type="checkbox"]:hover + label {
+  background-color: #e3f2fd;
+}
+
+/* Add smooth transitions everywhere */
+* {
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }

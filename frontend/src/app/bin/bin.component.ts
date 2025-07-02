@@ -77,6 +77,11 @@ showCustomPageSizeInput: boolean = false;
   isUploading: boolean = false;
   isDraggingOver: boolean = false;
   
+  showRejectModal: boolean = false;
+rejectReason: string = '';
+rejectReasonError: string = '';
+rejectLoading: boolean = false;
+
   constructor(private kebdService: KebdService) { }
 
 ngOnInit(): void {
@@ -285,7 +290,58 @@ showRevertDialog(): void {
   this.showRevertModal = true;
   this.revertNotes = '';
 }
+showRejectDialog(): void {
+  if (!this.selectedRecord) {
+    return;
+  }
+  
+  this.showRejectModal = true;
+  this.rejectReason = '';
+  this.rejectReasonError = '';
+}
 
+// Handle record rejection
+rejectRecord(): void {
+  if (!this.selectedRecord) {
+    return;
+  }
+  
+  // Validate rejection reason
+  if (!this.rejectReason.trim()) {
+    this.rejectReasonError = 'A detailed rejection reason is required';
+    return;
+  }
+  
+  this.rejectLoading = true;
+  
+  // Call API to reject the record
+  this.kebdService.rejectAndDeleteRecord(
+    this.selectedRecord.id!, 
+    this.rejectReason
+  ).subscribe({
+    next: (response) => {
+      // Remove the record from the lists
+      this.archivedRecords = this.archivedRecords.filter(r => r.id !== this.selectedRecord!.id);
+      
+      // Reset form and close dialog
+      this.showRejectModal = false;
+      this.rejectLoading = false;
+      this.rejectReason = '';
+      
+      // Refresh the view
+      this.applyFilter();
+      this.closeDetailView();
+      
+      // Show success notification
+      this.showNotification('Record has been rejected and deleted. Notification emails have been sent to all assigned users.', 'success');
+    },
+    error: (error) => {
+      console.error('Error rejecting record:', error);
+      this.rejectLoading = false;
+      this.showNotification('Failed to reject record: ' + (error.error?.message || 'Unknown error'), 'error');
+    }
+  });
+}
 // Add this method to handle the revert operation
 revertRecord(): void {
   if (!this.selectedRecord || !this.revertNotes.trim()) {

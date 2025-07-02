@@ -344,6 +344,9 @@
         <button class="btn-assign" (click)="showAssignDialog = true">
           Action buttons
         </button>
+        <button class="btn-reject" (click)="showRejectDialog()">
+    Reject Record
+  </button>
         <button class="btn-restore" (click)="restoreRecord()" *ngIf="selectedRecord?.status === 'Archived'">
           Restore Record
         </button>
@@ -549,4 +552,51 @@
       </div>
     </div>
   </div>
+  <!-- Reject Dialog Modal -->
+<div class="modal-overlay reject-modal" *ngIf="showRejectModal" (click)="showRejectModal = false">
+  <div class="reject-modal-content" (click)="$event.stopPropagation()">
+    <div class="reject-modal-header">
+      <h3>Reject Record</h3>
+      <button class="btn-close" (click)="showRejectModal = false">×</button>
+    </div>
+    
+    <div class="reject-modal-body">
+      <div class="reject-warning">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <div class="warning-text">
+          <p><strong>Warning:</strong> Rejecting this record will permanently delete it. This action cannot be undone.</p>
+          <p>All users who have been assigned to this record will receive an email notification with your rejection reason.</p>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="rejectReason">Rejection Reason (Required):</label>
+        <textarea 
+          id="rejectReason" 
+          [(ngModel)]="rejectReason" 
+          rows="4" 
+          placeholder="Provide a detailed reason for rejecting this record..."
+          [class.invalid]="rejectReasonError"
+        ></textarea>
+        <div *ngIf="rejectReasonError" class="error-text">{{ rejectReasonError }}</div>
+      </div>
+    </div>
+    
+    <div class="reject-modal-footer">
+      <button class="btn-cancel" (click)="showRejectModal = false">Cancel</button>
+      <button 
+        class="btn-reject-confirm" 
+        [disabled]="!rejectReason || rejectLoading" 
+        (click)="rejectRecord()"
+      >
+        <span *ngIf="!rejectLoading">Confirm Rejection</span>
+        <span *ngIf="rejectLoading" class="loading-spinner-small"></span>
+      </button>
+    </div>
+  </div>
+</div>
 </div>

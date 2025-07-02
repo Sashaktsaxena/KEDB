@@ -167,7 +167,12 @@ submitDraft(id: number, formData: any): Observable<any> {
   deleteAttachment(attachmentId: number): Observable<any> {
     return this.http.delete(`${API_URL}/attachments/${attachmentId}`);
   }
-  
+  // Add this method to kebd.service.ts
+rejectAndDeleteRecord(recordId: number, reason: string): Observable<any> {
+  return this.http.post(`${API_URL}/kebd/${recordId}/reject-delete`, {
+    reason: reason
+  });
+}
   // Get archived records (status = 'Archived')
   getArchivedRecords(): Observable<KebdRecord[]> {
     return this.http.get<any[]>(`${API_URL}/kebd/archived`).pipe(

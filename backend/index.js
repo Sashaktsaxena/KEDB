@@ -8,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
-// Load environment variables
 dotenv.config();
 
 const app = express();
@@ -1166,7 +1165,187 @@ app.post('/api/kebd/:id/assign', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to assign record', error: error.message });
   }
 });
+// Add this endpoint to index.js for handling record rejection and deletion
+app.post('/api/kebd/:id/reject-delete', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    if (!reason) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
 
+    // Get the current record details
+    const [currentRecord] = await pool.query(
+      'SELECT ke.*, u.email as owner_email, u.full_name as owner_name FROM knowledge_errors ke LEFT JOIN users u ON ke.owner_id = u.id WHERE ke.id = ?',
+      [id]
+    );
+
+    if (currentRecord.length === 0) {
+      return res.status(404).json({ message: 'Record not found' });
+    }
+    
+    const recordId = currentRecord[0].error_id;
+    const recordTitle = currentRecord[0].title;
+    const recordDescription = currentRecord[0].description;
+    const recordCategory = currentRecord[0].category;
+    const recordSubcategory = currentRecord[0].subcategory;
+    const recordStatus = currentRecord[0].status;
+    const ownerEmail = currentRecord[0].owner_email;
+    const ownerName = currentRecord[0].owner_name;
+    
+    // Get the user who's rejecting the record
+    const [rejecterUser] = await pool.query(
+      'SELECT full_name FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    
+    const rejecterName = rejecterUser.length > 0 ? rejecterUser[0].full_name : 'System Administrator';
+    
+    // Get all users who have been assigned to this record
+    const [assignmentHistory] = await pool.query(
+      `SELECT DISTINCT u.email, u.full_name 
+       FROM record_assignments ra 
+       JOIN users u ON ra.assigned_to_user_id = u.id 
+       WHERE ra.record_id = ?`,
+      [id]
+    );
+    
+    // Create a list of unique email addresses
+    const emailRecipients = [];
+    const emailSet = new Set();
+    
+    // Add owner if they have an email
+    if (ownerEmail && !emailSet.has(ownerEmail)) {
+      emailRecipients.push({
+        email: ownerEmail,
+        name: ownerName
+      });
+      emailSet.add(ownerEmail);
+    }
+    
+    // Add all past assignees with emails
+    assignmentHistory.forEach(user => {
+      if (user.email && !emailSet.has(user.email)) {
+        emailRecipients.push({
+          email: user.email,
+          name: user.full_name
+        });
+        emailSet.add(user.email);
+      }
+    });
+    
+    // Begin transaction
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Keep a copy of the rejection details before deleting
+      await connection.query(
+        'INSERT INTO rejected_records (record_id, original_error_id, title, description, category, subcategory, status, rejected_by_user_id, rejection_reason, rejection_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+        [id, recordId, recordTitle, recordDescription, recordCategory, recordSubcategory, recordStatus, req.user.id, reason]
+      );
+      
+      // Delete the record
+      await connection.query(
+        'DELETE FROM knowledge_errors WHERE id = ?',
+        [id]
+      );
+      
+      await connection.commit();
+      
+      // Send notification emails to all recipients
+      const emailPromises = emailRecipients.map(recipient => 
+        sendRejectionNotification(
+          recordId,
+          recordTitle,
+          recordDescription,
+          recordCategory,
+          recordSubcategory,
+          recipient.email,
+          recipient.name,
+          rejecterName,
+          reason
+        )
+      );
+      
+      await Promise.all(emailPromises);
+      
+      res.status(200).json({ 
+        message: 'Record rejected and deleted successfully',
+        emailsSent: emailRecipients.length
+      });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+    
+  } catch (error) {
+    console.error('Error rejecting and deleting record:', error);
+    res.status(500).json({ message: 'Failed to reject and delete record', error: error.message });
+  }
+});
+
+// Add this function to send rejection notifications
+async function sendRejectionNotification(recordId, recordTitle, recordDescription, recordCategory, recordSubcategory, recipientEmail, recipientName, rejecterName, reason) {
+  try {
+    // Create the email content
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://www.tatapower.com/images/logo.png" alt="Tata Power Logo" style="max-height: 60px;">
+        </div>
+        
+        <div style="background-color: #f44336; color: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <h2 style="margin: 0; font-size: 18px;">KEDB Record Rejection Notice</h2>
+        </div>
+        
+        <p>Dear ${recipientName},</p>
+        
+        <p>A Knowledge Error Database record that you have been involved with has been <strong>rejected and deleted</strong>.</p>
+        
+        <div style="background-color: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 20px 0;">
+          <p style="margin-top: 0;"><strong>Record ID:</strong> ${recordId}</p>
+          <p><strong>Title:</strong> ${recordTitle}</p>
+          <p><strong>Category:</strong> ${recordCategory} / ${recordSubcategory}</p>
+          <p><strong>Description:</strong> ${recordDescription}</p>
+          <p><strong>Rejected by:</strong> ${rejecterName}</p>
+          
+          <div style="margin-top: 15px; border-top: 1px solid #ffcdd2; padding-top: 15px;">
+            <p style="margin-top: 0;"><strong>Rejection Reason:</strong></p>
+            <p style="margin-bottom: 0;">${reason}</p>
+          </div>
+        </div>
+        
+        <p>This record has been permanently deleted from the system.</p>
+        
+        <p style="color: #777; font-size: 12px; margin-top: 30px; text-align: center;">
+          This is an automated message from the Tata Power KEDB System. Please do not reply to this email.
+        </p>
+        
+        <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #777; font-size: 12px;">
+          © ${new Date().getFullYear()} Tata Power Ltd. All rights reserved.
+        </div>
+      </div>
+    `;
+    
+    // Send the email
+    const info = await transporter.sendMail({
+      from: `"KEDB System" <${process.env.EMAIL_USER || 'kedb@tatapower.com'}>`,
+      to: recipientEmail,
+      subject: `KEDB Record Rejected and Deleted: ${recordTitle}`,
+      html: emailHtml
+    });
+    
+    console.log('Rejection email sent to', recipientEmail, ':', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('Error sending rejection email to', recipientEmail, ':', error);
+    return false;
+  }
+}
 // Get assignment history for a record
 // Update the /api/kebd/:id/history endpoint in index.js
 app.get('/api/kebd/:id/history', authenticateToken, async (req, res) => {

@@ -13,7 +13,6 @@ import { FormsModule } from '@angular/forms'; // Add this import
   imports: [
     CommonModule, 
     ReactiveFormsModule, 
-    RouterOutlet, 
     RouterModule,
     FormsModule  // Add this import to the component
   ],

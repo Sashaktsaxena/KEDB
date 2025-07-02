@@ -187,7 +187,7 @@
           
           <div class="detail-row">
             <div class="detail-label">Date Identified:</div>
-            <div class="detail-value">{{ formatDate(selectedRecord?.dateIdentified) }}</div>
+            <div class="detail-value">{{ formatDate(selectedRecord.dateIdentified) }}</div>
           </div>
           
           <div class="detail-row">
@@ -205,14 +205,14 @@
         <div class="record-ownership-info">
           <div class="record-owner">
             <div class="ownership-label">Owner:</div>
-            <div class="ownership-value">{{ selectedRecord?.originalOwner || selectedRecord?.owner }}</div>
+            <div class="ownership-value">{{ selectedRecord.originalOwner || selectedRecord.owner }}</div>
           </div>
           
           <div class="record-assignee" *ngIf="selectedRecord?.currentAssignee && selectedRecord?.currentAssignee !== selectedRecord?.owner">
             <div class="ownership-label">Currently Assigned To:</div>
-            <div class="ownership-value">{{ selectedRecord?.currentAssignee }}</div>
+            <div class="ownership-value">{{ selectedRecord.currentAssignee }}</div>
             <div *ngIf="selectedRecord?.dueDate" class="ownership-due-date" 
-                [ngClass]="getDueStatusClass(selectedRecord?.dueDate)">
+                [ngClass]="getDueStatusClass(selectedRecord.dueDate)">
               Due: {{ formatDate(selectedRecord.dueDate) }}
               <span *ngIf="selectedRecord?.daysRemaining != null">
                 ({{ getDueStatusText(selectedRecord.daysRemaining) }})
@@ -262,7 +262,7 @@
                 
                 <!-- Show due date if it's the current assignment -->
                 <div *ngIf="i === 0 && selectedRecord?.dueDate" class="timeline-due-date" 
-                    [ngClass]="getDueStatusClass(selectedRecord?.dueDate)">
+                    [ngClass]="getDueStatusClass(selectedRecord.dueDate)">
                   Due: {{ formatDate(selectedRecord.dueDate) }} 
                   <span *ngIf="selectedRecord?.daysRemaining != null">
                     ({{ getDueStatusText(selectedRecord.daysRemaining) }})

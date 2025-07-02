@@ -40,7 +40,9 @@ export class DraftsComponent implements OnInit {
   ngOnInit(): void {
     this.loadDrafts();
   }
-
+navigateToNewRecord(): void {
+  this.router.navigate(['/']);
+}
   loadDrafts(): void {
     this.loading = true;
     this.kebdService.getDrafts().subscribe({

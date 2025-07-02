@@ -15,7 +15,7 @@
       <a routerLink="/records" routerLinkActive="active" class="nav-item">Records</a>
        <a routerLink="/drafts" routerLinkActive="active" class="nav-item">Drafts</a>
       <a routerLink="/bin" routerLinkActive="active" class="nav-item">
-        <span class="bin-icon">🗑️</span> Archive
+        <span class="bin-icon">🗑️</span> Bin
       </a>
       
     </nav>
@@ -35,7 +35,7 @@
       </div>
 
       <div class="dropdown-menu" *ngIf="isDropdownOpen">
-        <a routerLink="/profile" class="dropdown-item">My Profile</a>
+        <a routerLink="/profile" class="dropdown-item">Home</a>
 
         <div class="dropdown-divider"></div>
         <button (click)="logout()" class="dropdown-item logout-btn">Logout</button>

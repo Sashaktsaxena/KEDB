@@ -24,7 +24,7 @@ h1 {
 }
 
 .btn-add-record {
-  background-color: #2e7d32;
+  background-color:#4caf50;
   color: #000000;
   padding: 10px 20px;
   border: none;
@@ -36,7 +36,7 @@ h1 {
 }
 
 .btn-add-record:hover {
-  background-color: #1b5e20;
+  background-color: #4caf50;
   box-shadow: 0 4px 8px rgba(46, 125, 50, 0.4);
   transform: translateY(-2px);
 }
